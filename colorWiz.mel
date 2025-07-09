@@ -73,7 +73,7 @@ global proc colorWizLayout(string $parent)
 	scrollField
 		-w 200
 		-h 400
-		-tx "white, black, grey, red, blue, green"
+		-tx "white, black, grey, red, blue, green, yellow, orange, purple, violet, magenta, cyan, pink, darkGrey, lightGrey, brown, altWhite, altRed, altBlue, altGreen, altYellow, altPurple, altOrange, altBrown"
 		colorWizNewColorList_scrollField
 		;
 		

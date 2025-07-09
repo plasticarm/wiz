@@ -1,0 +1,26 @@
+
+// Importing broken MB files, fixing, and exporting fbx with batch processer
+global string $WIZ_lastImportedFile;
+string $tlt[] = getAllTopLevelTransforms();
+select -r $tlt;
+alignObjectsToWorldCenterGround(`ls -sl`);
+select -all;
+string $sceneFile = $WIZ_lastImportedFile;
+string $filePathSplice[] = wizSpliceFilePath($sceneFile, "-fn -dir -ex");
+//string $filename[] = wizCraftGetFileOutputPaths("-n " + $filePathSplice[1] + $filePathSplice[0] + " -ext fbx -dir");
+string $fbxFilename = $filePathSplice[1] + $filePathSplice[0] + ".fbx";
+wizlog ("[#] Exporting FBX File : " + $fbxFilename);
+wizExportFBX($fbxFilename);
+file -f -new;
+
+// Opening and fixing and exporting fbx files with batch processor
+string $tlt[] = getAllTopLevelTransforms();
+select -r $tlt;
+alignObjectsToWorldCenterGround(`ls -sl`);
+select -all;
+string $sceneFile = `file -q -sn`;
+string $filePathSplice[] = wizSpliceFilePath($sceneFile, "-fn -dir -ex");
+string $filename[] = wizCraftGetFileOutputPaths("-n " + $filePathSplice[1] + $filePathSplice[0] + " -ext fbx -dir");
+wizlog ("[#] Exporting FBX File : " + $filename[0]);
+wizExportFBX($filename[0]);
+file -f -new;

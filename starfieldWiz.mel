@@ -1222,6 +1222,17 @@ global proc generateStarfieldParticles( string $flags )
 
 }
 
+global proc float[] sphericalToCartesionCoordinates( float $ra, float $dec, float $r )
+{
+	$dec = (3.1415926535 / 2)- $dec;
+	float $rr = $r * sin($dec);
+	float $z = $rr * cos($ra);
+	float $x = $rr * sin($ra);
+	float $y = $r * cos($dec);
+	float $coor[] = {$x, $y, $z};
+	return $coor;
+
+}
 /*
 global proc starfieldWizColorPerParticle( string $flags )
 {

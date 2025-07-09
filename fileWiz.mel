@@ -24,6 +24,10 @@ $WIZ_sceneFileIconSuffix = "ICON.png";
 global string $WIZ_sceneFileRenderIconSuffix;
 $WIZ_sceneFileRenderIconSuffix = "RICON.png";
 
+global string $WIZ_posterImageFile;
+
+global int $WIZ_currentFileIteration;
+
 global string $WIZ_sceneFilePosterSuffix;
 $WIZ_sceneFilePosterSuffix = "POSTER.png";
 
@@ -36,6 +40,8 @@ $WIZ_sceneThumbnailType = `optionVar -q WIZ_sceneThumbnailType`;
 
 global string $WIZ_subFileFolderSuffix;
 $WIZ_subFileFolderSuffix = "_files";
+
+global string $WIZ_lastImportedFile;
 
 //====================================================================
 global proc fileWiz()
@@ -167,6 +173,11 @@ global proc wizFileMenu()
 				menuItem -l "Remove Edits On Selected" -c ("wizRemoveReferenceEditsOnSelectedObjects(`ls -sl`);");
 				menuItem -l "Remove All Failed Edits" -c ("wizRemoveAllFailedReferenceEditsOnSelectedObjectsReferences(`ls -sl`);");
 				menuItem -l "Print All Failed Edits" -c ("wizPrintAllFailedReferenceEdits();");
+				menuItem -l "Remove All ConnectAttr Edits" -ann ("Warning : This will unload reference and remove"
+				+"all connectAttr and disconnectAttr commands. Not Undoable! ")	 -c ("wizRemoveAllConnectAttrEditsOnReference(`ls -sl`);");
+				menuItem -l "Remove All SetAttr Edits"-ann ("Warning : This will unload reference and remove"
+				+"all setAttr and disconnectAttr commands. Not Undoable! ")	  -c ("wizRemoveAllSetAttrEditsOnReference(`ls -sl`);");
+				
 			setParent -menu..;
 			
 			menuItem -sm true -l "Commands" -to true;
@@ -313,6 +324,71 @@ global proc exportWizLayout( string $parent )
 		;
 		
 
+}
+
+
+global proc nameingWizLayout( string $parent )
+{
+
+	string $layout = `frameLayout
+		-l "Naming Wiz"
+		-ann ""
+		-bv true
+		-la "center"
+		-li 10
+		-lv true
+		-mw 0
+		-mh 0			
+		-cll true
+		-cl true	
+		-p $parent		
+		namingWiz_frameLayout
+		`;
+
+	string $dictSrcFile = wizStandardFileTextFieldButtonGroup("Dictionary Src File", "wizDictSrcFile");
+	textFieldButtonGrp -edit -text "E:/maya/scripts/wiz/dictionary/nameDictionary.txt" $dictSrcFile;
+
+	string $randomCharNameCom = (		
+		"string $ranName = wizGenerateRandomNames(\"-type normal\");"+"\n"
+		+"textFieldButtonGrp -e -tx $ranName generateRandomCharacterNameTextFieldButtonGrp;"
+		);
+	
+	string $ranCharName = `textFieldButtonGrp
+		-l "Character Name"
+		-bl "Generate"
+		-bc $randomCharNameCom 
+		generateRandomCharacterNameTextFieldButtonGrp
+		`;	
+
+	string $randomSillyCharNameCom = (
+		"string $ranName = wizGenerateRandomNames(\"-type silly\");"+"\n"
+		+"textFieldButtonGrp -e -tx $ranName generateRandomSillyCharacterNameTextFieldButtonGrp;"
+		);
+	
+	string $ranCharName = `textFieldButtonGrp
+		-l "Silly Character Name"
+		-bl "Generate"
+		-bc $randomSillyCharNameCom 
+		generateRandomSillyCharacterNameTextFieldButtonGrp
+		`;	
+
+	wizIntFieldGrp(
+		"-l Names To Generate "
+		+"-v 100 "
+		+"-n randomizerWiz_numberOfNamesToGenerate_intFieldGrp"
+		);	
+
+	string $newNameFile = wizNewFileTextFieldButtonGrp("New Name File", "newNameFile");
+	
+	button
+		-l "Generate Names"
+		-c ("wizCraftGenerateNameDataFile(\"-type normal\");")
+		;
+
+	button
+		-l "Generate Silly Names"
+		-c ("wizCraftGenerateNameDataFile(\"-type silly\");")
+		;
 }
 //@ WIZ DIRMAP LAYOUT
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -1334,6 +1410,23 @@ global proc wizRemoveAllFailedReferenceEditsOnSelectedObjectReference( string $s
 	
 }
 
+global proc wizRemoveAllConnectAttrEditsOnReference(string $sel[])
+{
+	string $rfn = `referenceQuery -rfn $sel`;
+	file -unloadReference $rfn;
+	referenceEdit -failedEdits true -successfulEdits true -editCommand "connectAttr" -removeEdits $rfn;
+	referenceEdit -failedEdits true -successfulEdits true -editCommand "disconnectAttr" -removeEdits $rfn;
+	file -loadReference $rfn;
+}
+
+global proc wizRemoveAllSetAttrEditsOnReference(string $sel[])
+{
+	string $rfn = `referenceQuery -rfn $sel`;
+	file -unloadReference $rfn;
+	referenceEdit -failedEdits true -successfulEdits true -editCommand "setAttr" -removeEdits $rfn;
+	file -loadReference $rfn;
+}
+
 //@ WIZ PRINT ALL FAILED REFERENCE EDITS
 //==============================================================
 global proc wizPrintAllFailedReferenceEdits()
@@ -1783,7 +1876,7 @@ global proc wizIncrementAndSave( string $flags )
 	wizLog ("[@] wizIncrementAndSave");
 	// Scene File Name
 	string $sceneFile = `file -q -sn` ;
-	
+	wizLog ("	[] wizIncrementAndSave : Current File : " + $sceneFile);
 	// Get File Extension
 	string $extension = `fileExtension $sceneFile` ;
 	
@@ -1839,6 +1932,7 @@ global proc wizIncrementAndSave( string $flags )
 			$newFileName = ($nameWithNoVersion+$incVersion+"."+$extension) ;
 			int $exists = `filetest -e $newFileName`;
 			if ($exists == 0){
+				// Open the file if it exists and return
 				
 				break ;
 			}
@@ -1857,6 +1951,16 @@ global proc wizIncrementAndSave( string $flags )
 				$afterCount = size($incVersion) ;
 			}
 		}
+
+		$newFileName = ($nameWithNoVersion+$incVersion+"."+$extension) ;
+
+		int $exists = `filetest -e $newFileName`;
+		if ($exists == 1){
+			// Open the file if it exists and return
+			file -f -o $newFileName;
+			
+		}
+		
 	}
 	
 	
@@ -2934,6 +3038,9 @@ global proc wizExportEachSelectionToFile( string $flags )
 		case "abc" :
 		$ext = ".abc";
 		break ;
+		case "stl" :
+		$ext = ".stl";
+		break;
 		
 		
 	}
@@ -2977,6 +3084,9 @@ global proc wizExportEachSelectionToFile( string $flags )
 		}
 		if ($type == "fbx"){
 			wizExportFBX($exportFile);
+		}
+		if ($type == "stl"){
+			wizExportSTL($exportFile);
 		}
 		if ($type == "abc"){
 			select -r $sel[$i];
@@ -3184,6 +3294,51 @@ global proc string wizExportFBX( string $filename )
 	//FBXExport Add FBX_Root node -v FBX201300 -f $filename -caller FBXMayaTranslator -exportFormat "fbx;v=0" -s;
 
 	file -force -options "v=0;" -typ "FBX export" -es $filename;
+
+	return $filename;
+		
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+//
+//		Description: 	This just exports stl files
+//				
+//
+/////////////////////////////////////////////////////////////////////////////////////	
+global proc string wizExportSTL( string $filename )
+{
+	if ($filename == ""){
+		print("WIZ| Cannot Export STL : No File Name Provided\n");
+		return $filename;	
+	}
+	if (endsWith($filename, ".stl") == 0){
+		string $extension = `fileExtension $filename`;
+		if (`size $extension` > 0){
+			string $bn;
+			if (endsWith($filename, "*") == 1){
+				$bn = basename($filename, "*");
+			} else {
+				$bn = basename($filename, $extension);
+			}
+				string $path = getPathPart($filename);
+				
+				$filename = $path + "/" + $bn;
+		}
+		$filename = $filename + ".fbx";
+		
+	}
+	print("STL Filename: " + $filename + "\n");
+
+	//file -force -options -typ "FBX export" -es $filename;
+	//FBXExport -f $filename -caller FBXMayaTranslator  -exportFormat "fbx;v=0";
+	//file -force -options "v=0;" -typ "FBX export" -es $filename;
+	//file -force -typ "FBX export" -es $filename;
+	
+	//FBXExport Add FBX_Root node -v FBX201300 -f $filename -s;
+	
+	//FBXExport Add FBX_Root node -v FBX201300 -f $filename -caller FBXMayaTranslator -exportFormat "fbx;v=0" -s;
+
+	file -force -options "Binary=1" -typ "STLExport" -pr -es $filename;
 
 	return $filename;
 		
@@ -4589,8 +4744,12 @@ global proc string saveScenePosterImage()
 			$posterName = $fileNameNoExt + $WIZ_sceneFilePosterSuffix;
 		} else {
 			string $camNames[] = `listTransforms $renderCameras[$i]`;
-			wizLog ("	[+] Rendering Poster Image : " + $fileNameNoExt + "_" + $camNames[0] + "_" + $WIZ_sceneFilePosterSuffix);
-			$posterName = $fileNameNoExt + "_" + $camNames[0] + "_" + $WIZ_sceneFilePosterSuffix;
+			// We have to remove namespace in case the renderable camera has a namespace otherwise the image seems to not be saved.
+			string $buffer[] ;  
+			tokenize $camNames[0] ":" $buffer ;  
+			string $newCamName = $buffer[size($buffer)-1] ; 
+			wizLog ("	[+] Rendering Poster Image : " + $fileNameNoExt + "_" + $newCamName + "_" + $WIZ_sceneFilePosterSuffix);
+			$posterName = $fileNameNoExt + "_" + $newCamName + "_" + $WIZ_sceneFilePosterSuffix;
 		}
 			
 		//_________________________________________
@@ -4625,7 +4784,10 @@ global proc string saveScenePosterImage()
 		// Render Full		
 			
 			RenderIntoNewWindow;
-			
+			//render -b;
+
+			textFieldButtonGrp -e -tx $posterName posterImage_currentPosterFilename_textFieldButtonGrp;
+			wizlog ("	[+] Saving Poster To : " + $posterName);
 			if (`checkBox -q -v posterImage_colorManage_checkBox`){
 				renderWindowEditor -edit -writeImage $posterName -com renderView;
 			} else {
@@ -4670,6 +4832,216 @@ global proc string saveScenePosterImage()
     return $posterName;
 }
 
+
+global proc string wizRenderPosterWithMacro()
+{
+	wizLog ("[@] wizRenderPosterWithMacro");
+    global string $WIZ_sceneFilePosterSuffix;
+    string $sceneFile = `file -q -sn` ;
+    
+    string $sceneDir = getDirectoryFromFullFilePath($sceneFile);
+    string $filePathSplice[] = wizSpliceFilePath($sceneFile, "-dir -fn");
+    
+	// Get File Extension
+	string $extension = `fileExtension $sceneFile` ;
+	
+	// Remove Extension
+	string $fileNameNoExt ;
+
+    // Tokenize Filename
+    string $buffer[] ;
+    tokenize $sceneFile "." $buffer ;
+		
+    // Recompile Scenename Without Extension
+    for ($i=0;$i<(size($buffer)-1);$i++){
+        $fileNameNoExt = $fileNameNoExt + $buffer[$i] ;
+    }
+
+	setAttr -type "string" defaultRenderGlobals.postMel "wizMacroSavePosterImage();";
+
+	//_________________________________________
+	// Change Render Settings
+	
+    //Temporarily set the image format to png so we are always rendering png files
+    int $curImageFormat = `getAttr "defaultRenderGlobals.imageFormat"`;    
+    setAttr "defaultRenderGlobals.imageFormat" 32;
+    
+    string $posterName = $fileNameNoExt + $WIZ_sceneFilePosterSuffix;
+    //string $thumbName = $filePathSplice[0] + "icons/" + $filePathSplice[1] + $WIZ_sceneFileIconSuffix;
+
+	// set render globals to render large sq image
+    int $h = `getAttr "defaultResolution.height"`;
+    int $w = `getAttr "defaultResolution.width"`;
+	int $al = `getAttr "defaultResolution.aspectLock"`;
+	
+	int $posH = `intFieldGrp -q -v1 posterImageSize_intFieldGrp`;
+	int $posW = `intFieldGrp -q -v2 posterImageSize_intFieldGrp`;
+	
+    setAttr "defaultResolution.height" $posH;
+    setAttr "defaultResolution.width" $posW;
+	setAttr "defaultResolution.aspectLock" 1;
+    setTestResolutionVar(1);
+	
+	//_________________________________________
+	// Get Renderable Cameras
+	string $renderCameras[];
+	if (`checkBox -q -v posterImageUseRenderableCameras_checkBox`){
+		string $allCam[] = `ls -ca`;
+		for ($i=0;$i<`size $allCam`;$i++){
+			int $renderable = `getAttr ($allCam[$i] + ".renderable")`;
+			if ($renderable){
+				$renderCameras[`size $renderCameras`] = $allCam[$i];
+			}
+		}
+		
+	} else {
+		$renderCameras[0] = "persp";
+	}
+	
+	// Load the default render environment - will only load if there are no ligths in scene.
+	if (`checkBox -q -v posterImageLoadDefaultRenderEnv_checkBox` == 1){		
+		wizLog("	[+] Load Default Render Environment [+]");		
+		wizLoadDefaultRenderEnv("-rar");
+	}
+	
+	int $tnType = `optionVar -q WIZ_sceneThumbnailType`;
+	wizLog ("	[#] Thumbnail Type : " + $tnType);
+	string $pType = `optionMenuGrp -q -v posterImageTypeOptionMenuGrp`;
+		
+	for ($i=0;$i<`size $renderCameras`;$i++){
+		if (`checkBox -q -v posterImageUseRenderableCameras_checkBox`){
+			lookThru $renderCameras[$i];
+		}
+		
+		//_________________________________________
+		// Focal Length
+		string $curCam = getCurrentCamera();	
+		float $fl = `getAttr ($curCam + ".focalLength")`;
+		if (`checkBox -q -v posterImageUseFocalLength_checkBox`){			
+			float $pfl = `floatSliderGrp -q -v posterImageCameraFocalLength_floatSliderGrp`;
+			setAttr ($curCam + ".focalLength") $pfl;
+		}	
+		
+		if (`checkBox -q -v posterImageFitVisibleInView_checkBox`){
+			string $camAngle = `optionMenuGrp -q posterImageCameraAngleOptionMenuGrp`;
+			wizFitVisibleObjectsInView("-ca " + $camAngle);
+			//fitVisibleObjectsInView();
+			select -cl;
+		}	
+		
+		//_________________________________________
+		// Add Camera Name?
+		if (`size $renderCameras` < 2 && $renderCameras[0] == "persp"){
+			wizLog ("	[+] Rendering Poster Image : " + $fileNameNoExt + $WIZ_sceneFilePosterSuffix);
+			$posterName = $fileNameNoExt + $WIZ_sceneFilePosterSuffix;
+		} else {
+			string $camNames[] = `listTransforms $renderCameras[$i]`;
+			// We have to remove namespace in case the renderable camera has a namespace otherwise the image seems to not be saved.
+			string $buffer[] ;  
+			tokenize $camNames[0] ":" $buffer ;  
+			string $newCamName = $buffer[size($buffer)-1] ; 
+			wizLog ("	[+] Rendering Poster Image : " + $fileNameNoExt + "_" + $newCamName + "_" + $WIZ_sceneFilePosterSuffix);
+			$posterName = $fileNameNoExt + "_" + $newCamName + "_" + $WIZ_sceneFilePosterSuffix;
+		}
+			
+		//_________________________________________
+		// Render Draft	
+		if ($pType == "Draft"){
+			/*
+			// Check if we want to write over existing thumbnail
+			if (`checkBox -q -v sceneThumbnailAutoReplace_checkBox` == 0){
+				int $fileExists = `filetest -e $posterName`;
+				if ($fileExists == 1){
+					return $thumbName;
+				}
+			}
+			*/
+			int $currentFrame = `currentTime -q`;
+			//playblast a single image
+			playblast
+				-frame $currentFrame 
+				-format image
+				-completeFilename $posterName 
+				-clearCache 1 
+				-viewer 0 
+				-showOrnaments 0 
+				-os 
+				-percent 100 
+				-widthHeight $posH $posW
+				;
+
+		} else {
+			
+		//_________________________________________
+		// Render Full		
+			textFieldButtonGrp -e -tx $posterName posterImage_currentPosterFilename_textFieldButtonGrp;
+			global string $WIZ_posterImageFile;
+			$WIZ_posterImageFile = $posterName;
+			RenderIntoNewWindow;
+
+			/*
+			if (`checkBox -q -v posterImage_colorManage_checkBox`){
+				renderWindowEditor -edit -writeImage $posterName -com renderView;
+			} else {
+				renderWindowEditor -edit -writeImage $posterName renderView;
+			}
+			*/
+		}
+		
+		//_________________________________________
+		// Copy To Another Directory
+		if (`checkBox -q -v posterImage_copyPostersToDir_checkBox`){
+			string $copyDir = `textFieldButtonGrp -q -tx posterImage_copyDirectory_textFieldButtonGrp`;
+			string $fSplice[] = wizSpliceFilePath($posterName, "-ffn");
+			string $dest = $copyDir + $fSplice[0];
+			if ($copyDir == ""){
+				
+			} else {
+				wizlog ("	[+] Copy Poster To : " + $dest);
+				copyFileFromTo($posterName, $dest);
+			}
+			
+		}
+		
+		setAttr ($curCam + ".focalLength") $fl;
+
+	}
+	
+	//_________________________________________
+	// Reset
+	// reset render settings to previous state
+	setAttr "defaultResolution.height" $h;
+	setAttr "defaultResolution.width" $w;
+	setAttr "defaultResolution.aspectLock" $al;
+	setTestResolutionVar(4);
+	setAttr "defaultRenderGlobals.imageFormat" $curImageFormat;
+	
+	
+	// Remove the render env
+	wizLog("	[-] Remove Default Render Environment [-]");	
+	wizMGMT("-ex removeRenEnv","");
+		
+    return $posterName;
+}
+
+global proc wizMacroSavePosterImage()
+{
+	global string $WIZ_posterImageFile;
+	string $posterFilename = $WIZ_posterImageFile;
+	if ($posterFilename == ""){
+		$posterFilename = `textFieldButtonGrp -q -tx posterImage_currentPosterFilename_textFieldButtonGrp`;
+	}
+
+	if (`checkBox -q -v posterImage_colorManage_checkBox`){
+		renderWindowEditor -edit -writeImage $posterFilename -com renderView;
+	} else {
+		renderWindowEditor -edit -writeImage $posterFilename renderView;
+	}
+
+	wizLog("	[+] Macro Saved Poster Image [+]");
+	wizLog("	[+] " + $posterFilename + " [+]");
+	setAttr -type "string" defaultRenderGlobals.postMel "";
+}
 
 // pass name of file, not name of thumbnail image file
 global proc string wizMeshThumbnailImage( string $flags )
@@ -4994,7 +5366,7 @@ global proc loadWizRenderSettings()
 *********************************************************************/
 global proc string[] wizExportSet( string $flags )
 {
-	wizlog ("[@] wizExportSet");
+	wizlog ("[@] wizExportSet... Yes this is true");
 	
 	string $obj, $type;
 	string $name;
@@ -5095,6 +5467,7 @@ global proc string[] wizExportSet( string $flags )
 		}
 		
 		string $allRPSet[] = `ls -r true ("*renderProxySet")`;
+		string $tex[];
 		for ($i=0;$i<`size $all`;$i++){
 		
 			wizlog ("==================== EXPORT SET : " + $all[$i] + " ==================");
@@ -5103,20 +5476,40 @@ global proc string[] wizExportSet( string $flags )
 			$name = $tok[1];
 			
 			string $exSel[] = `sets -q $all[$i]`;
+			
+			
 			$exSel = `ls -v $exSel`;
 			
 			//_________________________________________
-			// Remove any object with 0 bbox size
+			// Remove Textures and process them after meshes
 			string $remove[];
+
+			$tex = `ls -tex $exSel`;
+			if (`size $tex` > 0){
+				wizlog ("[!] Removing Textures From Export List.");
+				$exSel = stringArrayRemove($tex, $exSel);
+			}
+
+			//_________________________________________
+			// Remove any object with 0 bbox size			
 			for ($p=0;$p<`size $exSel`;$p++){
-					float $bBoxSize[] = `getAttr ($exSel[$p] + ".boundingBoxSize")`;
-					if ($bBoxSize[0] == 0 && $bBoxSize[1] == 0 && $bBoxSize[2] == 0){
-						$remove[`size $remove`] = $exSel[$p];
-					}
-			}			
+				
+				if (`attributeExists "boundingBoxSize" $exSel[$p]` == 0){
+					//wizlog ("[!] Removing : " + $exSel[$p] + " : From Export List.");
+					//$remove[`size $remove`] = $exSel[$p];
+					continue;
+				}
+
+				float $bBoxSize[] = `getAttr ($exSel[$p] + ".boundingBoxSize")`;
+				if ($bBoxSize[0] == 0 && $bBoxSize[1] == 0 && $bBoxSize[2] == 0){
+					$remove[`size $remove`] = $exSel[$p];
+				}
+			}	
+			
 			if (`size $remove` > 0){
 				$exSel = stringArrayRemove($remove, $exSel);
 			}
+
 			
 			if (`size $exSel` == 0){
 				wizlog ("[!] Nothing Is Selected For Exporting. Skipping.");
@@ -5146,9 +5539,14 @@ global proc string[] wizExportSet( string $flags )
 				if ($useFileName == 1){
 					string $sceneFile = `file -q -sn`;
 					string $sfSplice[] = wizSpliceFilePath($sceneFile, "-fn");
-					$name = $sfSplice[0];
+					if (`size $all` > 1){
+						$name = $sfSplice[0] + "_" + $name;
+					} else {
+						$name = $sfSplice[0];
+					}
 				}
 				$prefixFileName = 1;
+
 			}
 			
 			//_________________________________________
@@ -5247,9 +5645,11 @@ global proc string[] wizExportSet( string $flags )
 					// If we are exporting each mesh... remove the "Mesh" suffix from object name
 					//$dupName = substituteAllString($exSel[$ic], "Mesh", "");
 					//wizLog("+++++----------Renaming Object : " + $exSel[$ic] + " To : " + $dupName);
-					$dup = `duplicate -rr -renameChildren $exSel[$ic]`;					
+					$dup = `duplicate -rr -renameChildren $exSel[$ic]`;	
+					//$dup = `duplicate -rr $exSel[$ic]`;					
 				} else {				
 					$dup = `duplicate -rr -renameChildren -n $dupName $exSel[$ic]`;
+					//$dup = `duplicate -rr -n $dupName $exSel[$ic]`;
 				}
 				
 				wizlog ("[+] Duplicate : " + $exSel[$ic]);
@@ -5268,7 +5668,13 @@ global proc string[] wizExportSet( string $flags )
 				
 	
 			}
-			
+			/*
+			// Export Textures
+			if (`size $tex` > 0){
+				wizCraftRenderExportTextures();
+			}
+			*/
+
 			// If we are using the name of the exported object instead of the filename
 			if ($useExportObjectName == 1){
 				$name = $exSelCopy[0];
@@ -5282,6 +5688,11 @@ global proc string[] wizExportSet( string $flags )
 			}
 			
 			select -r $exSelCopy;
+
+			// Remove namespaces
+			// removeSelectedNamespaces();
+
+			
 			/*
 			deleteExtraMeshNodesOnSelectedObjects(`ls -sl`);
 			wizFlattenUVSetsOnSelectedObjects(`ls -sl`);
@@ -5389,7 +5800,7 @@ global proc string[] wizExportSet( string $flags )
 				
 				parent -w;
 				
-				alignObjectsToWorldCenter(`ls -sl`);
+				//alignObjectsToWorldCenter(`ls -sl`);
 				
 				select -r $eG;
 				
@@ -5553,6 +5964,8 @@ global proc string[] wizExportSet( string $flags )
 			addAttr -ln "exportEachMesh" -at bool $newSet;
 			setAttr ($newSet + ".exportEachMesh") 0;				
 		}
+		
+		wizlog ("export each Mesh attribute added");
 		
 		if (`attributeExists "useFileName" $newSet` == 0){
 			addAttr -ln "useFileName" -at bool $newSet;
@@ -7072,4 +7485,14 @@ global proc convertAllFBXFilesInDirToOBJ()
 		
 	}
 	
+}
+
+global proc wizPrepForExport()
+{
+	// Import all references recursivally
+	// 
+	// Delete unused objects ?
+	// convert instances to objects?
+	// run optimize scene ?
+
 }

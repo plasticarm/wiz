@@ -86,7 +86,7 @@ global proc wizConstraintsMenu()
 			menuItem -ob true -c ("openCurrentOptionsLayout(\"closestPointFollicleOptions\");");
 		menuItem -l "Make Mesh Skeleton" -c ("makeMeshSkeleton();");
 		menuItem -l "Auto Constrain Character Constraint Groups" -c ("autoConstrainCharacterConstraintGroups(`ls -sl`);");
-		
+		menuItem -l "Parent ParentConstrained Objects To Targets" -c ("wizParentConstraintOperations(\"-sl -hi -p -dup -com\");");
 		
 	setParent -menu ..;
 
@@ -560,7 +560,7 @@ global proc createJointMesh( string $currentJoint)
 		$vector1 = << ($xform1[0]),($xform1[1]),($xform1[2])>>;
 		$vector2 = << ($xform2[0]),($xform2[1]),($xform2[2])>>;
 		float $dist = mag($vector2 - $vector1);
-		float $dist = $dist/2;
+		$dist = $dist/2;
 		scale -r $dispScale $dist $dispScale $solidJoint;
 		pointConstraint -weight 1 $parentJoint $solidJoint;
 		aimConstraint -aim 0 1 0 -u 0 1 0 -wu 0 1 0 -weight 1 $currentJoint $solidJoint;
@@ -829,3 +829,145 @@ global proc wizRigOperation( string $flags )
 
 
 }
+
+
+//@ WIZ PARENT CONSTRAINT OPERATION
+//====================================================================
+/*****************************************************************//**
+	This does various common operations on parent constraints 
+	<hr>
+	<b>Synopsis</b><br>
+	procName [-obj string] [-typ linear] <br>
+	A more detailed description.
+	
+	<b>Return value</b><br>
+	string[] description of return.
+	
+	<b>Flags</b><br>
+	-object(-obj) <br>
+	-selected(-sl) <br>
+	-type(-typ) <br>
+	-edit(-e) <br>
+	-query(-q) <br>
+		
+	<hr>
+	<b>Related</b><br>
+	someProcedure(),
+	
+	<b>Examples</b><br>
+	<code>
+	wizParentConstraintOperations("-sl -hi -p");
+	wizParentConstraintOperations("-sl -hi -p -dup -com");
+	</code>
+*********************************************************************/
+global proc wizParentConstraintOperations( string $flags)
+{
+	string $obj, $type;
+	string $sel[];
+	int $hi, $parent, $com, $robloxName, $doDup;
+	string $pc[];
+	string $tok[] = tokenizeString($flags, " ");
+	for ($i=0;$i<`size $tok`;$i++){
+		switch ($tok[$i]){
+			case "-sl" : case "-selected" :
+			$sel = `ls -sl`;
+			break ;	
+
+			case "-hi" : case "-hierarchy" :
+			$hi = 1;
+			break ;
+				
+			case "-p" : case "-parent" :
+			$parent = 1;
+			break ;
+			
+			case "-com" : case "-combine" :
+			$com = 1;
+			break ;		
+				
+			case "-dup" : case "-duplicate" :
+			$doDup = 1;
+			break ;
+		}
+	}
+	if (`size $sel` == 0){
+		$sel = wizFlagObjTrail($flags);
+	}
+
+	if ($hi == 1){
+		select -hi `ls -sl`;
+		$pc = `ls -type parentConstraint -sl`;
+
+	}
+
+	if ($parent == 1){
+		for ($i=0;$i<`size $pc`;$i++){
+			// Get the parent constraint target
+			string $tl[] = `parentConstraint -q -tl $pc[$i]`;
+			
+			// Get the parent constraint parent
+			string $dp = `firstParentOf $pc[$i]`;
+			// If we want to duplicate and combine meshes...
+			select -r $dp;
+
+			wizlog("[===== ROBLOX =====] - Doing Roblox Rig Parenting");
+			string $geo[] = smartSelectGeometryObjects(`ls -sl`);
+			select -r $geo;
+			$dup = `duplicate -rr -renameChildren $geo`;
+			parent -w $dup;
+			select -r $dup;
+
+			if (`size $geo` > 1){				
+			
+				string $unite[] = `polyUnite -ch 1 -mergeUVSets 1 -centerPivot -name ($tl[0] + "_Geo")`;
+				
+				delete -ch $unite[0];
+				// parent the object to the target
+				parent $unite[0] $tl[0];
+			} else {
+				rename $dup ($tl[0] + "_Geo");
+				// parent the object to the target
+				parent ($tl[0] + "_Geo") $tl[0];
+			}
+				
+			
+
+		}
+
+	}
+
+
+}
+/*
+} else {
+				
+				// duplicate?
+				string $dup[];
+				if ($doDup == 1){
+					wizlog("[+] Duplicating Objects : " + $dp);
+					$dup = `duplicate -rr -renameChildren $dp`;
+					parent -w $dup;
+					$dp = $dup[0];
+				}
+				// combine meshes?
+				if ($com == 1){
+					select -hi $dp;
+					string $doCom[] = smartSelectGeometryObjects(`ls -sl`);
+					if (`size $doCom` > 1){				
+					
+						string $unite[] = `polyUnite -ch 1 -mergeUVSets 1 -centerPivot -name ($tl[0] + "_Geo")`;
+						$dp = $unite[0];
+					}
+				}
+
+				if ($doDup == 0){
+					// delete the constraint
+					dele
+					te $pc[$i];
+				}
+			
+
+				// parent the object to the target
+				parent $dp $tl[0];
+			}
+*/

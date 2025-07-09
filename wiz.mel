@@ -813,6 +813,7 @@ global proc wizScriptsMenu()
 	$WIZ_wizLogging = getOptionVarInt("WIZ_wizLogging", 1);
 	
 	menu -l "Scripts";	
+		menuItem -l "Clear Pre and Post Mel Commands" -c "clearPrePostMelCommands" clearPrePostMellCommandsMenuItem;
 		menuItem -sm true -l "Feedback";		
 			menuItem -l "All Feedback" -cb false -c "toggleAllFeedback" toggleAllFeedback;
 			

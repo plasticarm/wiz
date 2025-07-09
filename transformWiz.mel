@@ -687,7 +687,7 @@ global proc fixTransformsMenuItems()
 	menuItem -sm true -l "Alignment" -to true;
 		menuItem -l "World Center" -c ("alignObjectsToWorldCenter(`ls -sl`);");
 		menuItem -l "World Center Ground" -c ("alignObjectsToWorldCenterGround(`ls -sl`);");
-		
+		menuItem -l "World Center Front" -c ("wizAlignSelectedToWorldGround(`ls -sl`,\"worldCenterFront\");");
 		menuItem -l "World Center Ground Left" -c ("wizAlignSelectedToWorldGround(`ls -sl`,\"worldCenterGroundLeft\");");
 		menuItem -l "World Center Ground Right" -c ("wizAlignSelectedToWorldGround(`ls -sl`,\"worldCenterGroundRight\");");
 		menuItem -l "World Center Ground Front" -c ("wizAlignSelectedToWorldGround(`ls -sl`,\"worldCenterGroundFront\");");
@@ -717,6 +717,10 @@ global proc fixTransformsMenuItems()
 	setParent -menu..;	
 	
 	menuItem -l "Set Pivot To World Center" -c ("xform -ws -piv 0 0 0;");
+		
+	menuItem -l "Zero Out Translate and Rotate" -c ("xform -os -ro 0 0 0 -t 0 0 0;");
+	menuItem -l "Reset Object Space" -c ("xform -os -ro 0 0 0 -t 0 0 0 -s 1 1 1;");
+
 	menuItem -l "Straighten" -ecr true -c ("openCurrentOptions(\"straightenRotationsOptionsMenu\");float $precision = `floatSliderGrp -q -v fixTransformsStraightenPrecisionFloatSliderGrp`;"
 		+ "straightenRotationsOnSelected(`ls -sl`,$precision);");
 		menuItem -ob true -c ("openCurrentOptionsLayout(\"straightenRotationsOptionsMenu\");");
@@ -1642,6 +1646,10 @@ global proc wizAlignToWorldGround( string $obj, string $alignment )
 			xform -piv $piv[0] $bboxMin[1] $piv[2];
 			xform -ws -a -t 0 (0 - $bboxMin[1]) 0 $obj;
 		break ;
+		case "worldCenterFront" :
+			xform -piv $piv[0] $bboxMin[1] $bboxMin[2];
+			xform -ws -a -t 0 0 (0 - $bboxMin[2]) $obj;
+		break ;
 		case "worldCenterGroundRight" :
 			xform -piv $bboxMin[0] $bboxMin[1] $piv[2];
 			xform -ws -a -t (0 - $bboxMin[0] ) (0 - $bboxMin[1]) 0 $obj;
@@ -2268,11 +2276,42 @@ global proc scaleObjectToFitObject( string $sel[] )
 {
 	float $bbs1[] = `getAttr ($sel[0] + ".boundingBoxSize")`; 
 	float $bbs2[] = `getAttr ($sel[1] + ".boundingBoxSize")`;
+	print("BBox1: " + $bbs1[0] + " " + $bbs1[1] + " " + $bbs1[2] + " BBox2: " + $bbs2[0] + " " + $bbs2[1] + " " + $bbs2[2]);
+	float $sb[], $scale[], $newScale[];
+	if ($bbs1[0] == 0 ||$bbs1[1] == 0 ||$bbs1[2] == 0 ){
+		warning("Yikes! Division By Zero!/n");
+		$sb = { ($bbs2[0] / $bbs1[0]), ($bbs2[1] / $bbs1[1]), 1.0 };
+		$scale = `getAttr ($sel[1] + ".scale")`;
+		$newScale = { ($scale[0] / $sb[0]), ($scale[1] / $sb[1]), 1.0 };
+		print (" New Scale : " + $newScale[0] + " " + $newScale[1] + " " + $newScale[2] + "//n");
+		xform -s $newScale[0] $newScale[1] $newScale[2] $sel[1];
+		return ;
+	}
+	if ($bbs1[2] == 0.0){
+		$sb = { ($bbs2[0] / $bbs1[0]), ($bbs2[1] / $bbs1[1]), 1.0 };
+		$scale = `getAttr ($sel[1] + ".scale")`;
+		$newScale = { ($scale[0] / $sb[0]), ($scale[1] / $sb[1]), 1.0 };
+	} if ($bbs1[1] == 0.0){
+		$sb = { ($bbs2[0] / $bbs1[0]), 1.0, ($bbs2[2] / $bbs1[2]) };
+		$scale = `getAttr ($sel[1] + ".scale")`;
+		$newScale = { ($scale[0] / $sb[0]), 1.0, ($scale[2] / $sb[2]) };
+	} if ($bbs1[0] == 0.0){
+		$sb = { 1.0, ($bbs2[1] / $bbs1[1]), ($bbs2[2] / $bbs1[2]) };
+		$scale = `getAttr ($sel[1] + ".scale")`;
+		$newScale = { 1.0, ($scale[1] / $sb[1]), ($scale[2] / $sb[2]) };
+	} else {
+		$sb = { ($bbs2[0] / $bbs1[0]), ($bbs2[1] / $bbs1[1]), ($bbs2[2] / $bbs1[2]) };
+		$scale = `getAttr ($sel[1] + ".scale")`;
+		$newScale = { ($scale[0] / $sb[0]), ($scale[1] / $sb[1]), ($scale[2] / $sb[2]) };
+
+	}
+	/*
 	float $sb[] = { ($bbs2[0] / $bbs1[0]), ($bbs2[1] / $bbs1[1]), ($bbs2[2] / $bbs1[2]) };
 
 	float $scale[] = `getAttr ($sel[1] + ".scale")`;
 	float $newScale[] = { ($scale[0] / $sb[0]), ($scale[1] / $sb[1]), ($scale[2] / $sb[2]) };
-
+	*/
+	print (" New Scale : " + $newScale[0] + " " + $newScale[1] + " " + $newScale[2] + "//n");
 	xform -s $newScale[0] $newScale[1] $newScale[2] $sel[1];
 
 }
@@ -2824,7 +2863,7 @@ global proc float[] convertAxisDirection( string $axis, int $dir, string $method
 	float $max = 99999999;
 	switch($method){
 		case "polySelectConstraintAxis" : case "polySelectConstraint" :
-		float $max = 100;
+		$max = 100;
 		$pxyz = { 0 , 0 , 0 };
 		$vxyz = { 0 , 0 , 0 };
 		$pxyz[$i] = ($max * $dir);
@@ -3955,6 +3994,99 @@ global proc wizProportionalScaleConnect( string $flags )
 	}
 	
 	
+}
+
+
+//@ WIZ CreateIncrementalRotationControl
+//====================================================================
+/*****************************************************************//**
+	Brief description.
+	<hr>
+	<b>Synopsis</b><br>
+	wizCreateIncrementalRotationControl [-obj string] [-typ linear] <br>
+	A more detailed description.
+	
+	<b>Return value</b><br>
+	string[] description of return.
+	
+	<b>Flags</b><br>
+	-selected(-sl) <br>
+	-a(-axis) <br>
+	-d(-degrees) <br>
+		
+	<hr>
+	<b>Related</b><br>
+	someProcedure(),
+	
+	<b>Examples</b><br>
+	<code>
+	wizCreateIncrementalRotationControl("-sl -a Y -d 90");
+	
+	</code>
+*********************************************************************/
+global proc wizCreateIncrementalRotationControl(string $flags)
+{
+	wizlog ("[@] wizCreateIncrementalRotationControl");
+	wizlog ("	[*] wizCreateIncrementalRotationControl(\"" + $flags + "\");");
+	string $sel[];
+	string $tok[] = tokenizeString($flags, " ");
+	string $rotAttr = ".rotate";
+	string $incRotAttr = "incRotate";
+	int $incDegrees = 90;
+
+	for ($i=0;$i<`size $tok`;$i++){
+		switch ($tok[$i]){
+
+			case "-sl" : case "-selected" :
+			$sel = `ls -tr -sl`;
+			break ;
+
+			case "-y" : 
+			$rotAttr += "Y";
+			$incRotAttr += "Y";
+			break ;			
+
+			case "-x" : 
+			$rotAttr += "X";
+			$incRotAttr += "X";
+			break ;
+
+			case "-z" : 
+			$rotAttr += "Z";
+			$incRotAttr += "Z";
+			break ;
+
+			case "-a" : case "-axis" :
+			$rotAttr += ($tok[($i + 1)]);
+			$incRotAttr += ($tok[($i + 1)]);
+			break ;
+
+			case "-d" : case "-degrees" :
+			$incDegrees = int($tok[($i + 1)]);
+			break ;
+
+		}
+	}
+
+	int $degCount = int(360 / $incDegrees);
+
+	for($s=0;$s<`size $sel`;$s++){
+
+		float $curRot = `getAttr ($sel[$s] + $rotAttr)`;
+		// Add Attributes and create set driven keys
+		addAttr -ln $incRotAttr  -at long  -min 0 -max ($degCount - 1) -dv 0 $sel[$s];
+
+		for ($i=0;$i<$degCount;$i++){		
+			setAttr -e-keyable true ($sel[$s] + "." + $incRotAttr);
+			setAttr ($sel[$s] + "." + $incRotAttr) $i;
+			setAttr ($sel[$s] + $rotAttr) ($curRot + ($incDegrees * $i));
+			setDrivenKeyframe -currentDriver ($sel[$s] + "." + $incRotAttr) ($sel[$s] + $rotAttr);
+			
+		}
+
+		// Reset
+		setAttr ($sel[$s] + "." + $incRotAttr) 0;
+	}
 }
 
 global proc wizMirrorFinalIKJoints()

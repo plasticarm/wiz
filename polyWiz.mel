@@ -913,6 +913,8 @@ global proc polyWizMenuBarLayout()
 		menuItem -l "Terrain Shrink Wrap" -c ("terrainShrinkWrapWindow();");
 		
 		menuItem -l "Toggle Boolean Source" -c ("wizToggleBoolBaseVisibility();");
+
+		menuItem -l "Replace Black Vertices with Transparent Vertices" -c ("wizReplaceBlackWithTransparentVertexColor()");
 		
 		
 	//Components	
@@ -7519,4 +7521,26 @@ global proc prepMasterpieceVRMesh()
 	alignObjectsToWorldCenter(`ls -sl`);
 	makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn 1;
 	removeAllNamespaces();
+}
+
+global proc wizReplaceBlackWithTransparentVertexColor()
+{
+	string $sel[];
+	$sel = `ls -sl`;
+	
+	string $vertexID;	
+	int $vertNum[] = `polyEvaluate -v $sel[0]`;
+
+	for($i = 0; $i < $vertNum[0]; $i++){
+		$vertexID = $sel[0] + ".vtx[" + $i + "]";
+
+		float $rgb[] = `polyColorPerVertex -q -rgb $vertexID`;
+		//print("RGB : " + $rgb[0] + " " + $rgb[1] + " " + $rgb[2] + "\n");
+		if ($rgb[0] <= 0.01 && $rgb[1] <= 0.01 && $rgb[2] <= 0.01){
+			//$rgb[$i] = "0 0 0 0";
+			float $avg = ($rgb[0]+$rgb[1]+$rgb[2]) / 3;
+			polyColorPerVertex -a $avg $vertexID;
+		}
+		
+	}
 }

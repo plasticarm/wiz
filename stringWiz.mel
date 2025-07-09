@@ -42,6 +42,8 @@ global proc filePathWizLayout( string $parent )
 		filePathWizConvertToMayaPathTextFieldButtonGrp
 		`;
 
+	
+
 }
 
 //========================================================================================================
@@ -1636,3 +1638,39 @@ global proc string generateRandomTextString( string $flags )
 
 	return "";
 }
+
+// **********************************************************  
+// Reads A Text File And Returns A String Array Of Each Line  
+global proc string[] wizTextFileToStringArray (int $skipFirstLine, string $filePath) {  
+  
+	// Open File  
+	$fileId = `fopen $filePath "r"` ;  
+	
+	// Define String Array  
+	string $dataArray[] ;  
+	
+	// Get The First Line  
+	string $nextLine = `fgetline $fileId` ;  
+	
+	// Loop Until The String Size Is Zero (No Data On That Line)  
+	while (size($nextLine) > 0) {  
+	
+	// Strip Whitespace From The Beginning And End Of The Line  
+	string $cleanLine = strip($nextLine) ;  
+	
+	// Add To Array  
+	$dataArray[size($dataArray)] = $cleanLine ;  
+	
+	// Get Next Line And Continue  
+	$nextLine = `fgetline $fileId` ;  
+	
+	}  
+	
+	// Remove First Line  
+	if($skipFirstLine) stringArrayRemoveAtIndex(0,$dataArray) ;  
+	
+	// Return Array  
+	return $dataArray ;  
+  
+}  
+

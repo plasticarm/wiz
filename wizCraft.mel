@@ -771,6 +771,7 @@ global proc string[] wizCraftGetFileOutputPaths( string $flags )
 	int $ucd;
 	int $inc;
 	int $xga;
+	int $rns; // remove name space
 	if (`size $curFile` == 0){
 		int $saved = wizSaveFile();
 		if ($saved == 0){
@@ -802,6 +803,10 @@ global proc string[] wizCraftGetFileOutputPaths( string $flags )
 			case "-pwfn" : case "-prefixWithFileName" :
 			$pwfn = 1;
 			break ;
+
+			case "-rns" : case "-removeNameSpace" :
+			$rns = 1;
+			break;
 			
 			case "-usd" : case "-useSameDir" :
 			$usd = 1;
@@ -822,6 +827,10 @@ global proc string[] wizCraftGetFileOutputPaths( string $flags )
 
 		}
 	} 
+
+	if ($rns){
+		$name = removeNamespaceFromString($name);
+	}
 	
 	if (`size $tok` == 0){
 	
@@ -863,7 +872,8 @@ global proc string[] wizCraftGetFileOutputPaths( string $flags )
 		if (`size $objType` > 0){
 			$objType = "_" + $objType;
 		}
-		$exportName = $filePathSplice[0] + $objType + "." + $ext;
+		$exportName = $filePathSplice[0] + "_" + $name + $objType + "." + $ext;
+
 	} else if (`size $name` > 0){
 		if (`size $objType` > 0){
 			$objType = "_" + $objType;
@@ -5498,4 +5508,164 @@ global proc wizCraftRenderTextures()
 	
 	convertSolidTx -bm "extend" -rx 2048 -ry 2048 -fil png -fileImageName "myTexture.png" wizCraft_windows_WindowsSelectionLayeredTexture pPlane1;
 	
+}
+
+global proc wizCraftMakeBrailleNoise()
+{    
+    float $bbs2[] = `getAttr ("noiseDotMesh1.boundingBoxSize")`; 
+    float $scale[] = `getAttr ("noiseDotMesh1.scale")`;
+    string $sel[] = `ls -sl`;
+	wizlog("Generating " + `size $sel` + " Noise Dots Sets");
+	for ($i=0;$i<`size $sel`; $i++)
+    {
+		string $newGroup = `group -em -name ("noiseDotsGroup_" + $sel[$i])`;
+
+		string $setMem[] = `sets -q $sel[$i]`;
+
+		wizlog("Generating " + `size $setMem` + " Noise Dots");
+		wizProgressWindowStart("Generating " + `size $setMem` + " Noise Dots", "Making Noise", 1);
+		wizProgressWindowMinMax(0,`size $setMem`);
+		/*
+		for ($i=1; $i<50; ++$i) 
+		{
+			instance noiseDotMesh1;
+		}
+		*/
+		for ($j=0;$j<`size $setMem`; $j++)
+		{
+			wizProgressWindowStep(1);
+			// instance the dot primitive
+			//select -r noiseDotMesh1;
+			string $newDot[] = `instance noiseDotMesh1`;
+			// match the size of the noise circle
+			float $bbs1[] = `getAttr ($setMem[$j] + ".boundingBoxSize")`; 	    
+			float $sb[] = { ($bbs2[0] / $bbs1[0]), ($bbs2[1] / $bbs1[1]), ($bbs2[1] / $bbs1[1]) };	    
+			float $newScale[] = { ($scale[0] / $sb[0]), ($scale[1] / $sb[1]), ($scale[1] / $sb[1]) };
+			xform -s $newScale[0] $newScale[1] $newScale[2] $newDot[0];
+
+			// match translation of noise circle
+			select -add $setMem[$j];       
+			MatchTranslation;
+			// put the dot into the noiseDotsGroup1
+			parent $newDot $newGroup;
+
+			if (wizProgressCancelled() == 1) return;	
+
+		}
+		wizProgressWindowEnd();
+		wizlog("Set " + $i + " Complete. Saving File.");
+		file -f -save ;
+	}
+    
+}
+
+global proc wizCraftMakeBrailleStars()
+{    
+    float $bbs2[] = `getAttr ("starMesh1.boundingBoxSize")`; 
+    float $scale[] = `getAttr ("starMesh1.scale")`;
+    string $sel[] = `ls -sl`;
+	wizlog("Generating " + `size $sel` + " Star Sets");
+	for ($i=0;$i<`size $sel`; $i++)
+    {
+		string $newGroup = `group -em -name ("starsGroup_" + $sel[$i])`;
+
+		string $setMem[] = `sets -q $sel[$i]`;
+
+		wizlog("Generating " + `size $setMem` + " Stars");
+		wizProgressWindowStart("Generating " + `size $setMem` + " Stars", "Making Stars", 1);
+		wizProgressWindowMinMax(0,`size $setMem`);
+		/*
+		for ($i=1; $i<50; ++$i) 
+		{
+			instance starMesh1;
+		}
+		*/
+		for ($j=0;$j<`size $setMem`; $j++)
+		{
+			wizProgressWindowStep(1);
+			select -r "starMesh1";
+			// instance the dot primitive
+			//select -r starMesh1;
+			string $newDot[] = `instance starMesh1`;
+			// match the size of the noise circle
+			float $bbs1[] = `getAttr ($setMem[$j] + ".boundingBoxSize")`; 	    
+			float $sb[] = { ($bbs2[0] / $bbs1[0]), ($bbs2[1] / $bbs1[1]), ($bbs2[1] / $bbs1[1]) };	 
+			print("BBox1: " + $bbs1[0] + " " + $bbs1[1] + " " + $bbs1[2] + " BBox2: " + $bbs2[0] + " " + $bbs2[1] + " " + $bbs2[2]);  
+			float $newScale[] = { ($scale[0] / $sb[0]), ($scale[1] / $sb[1]), ($scale[1] / $sb[1]) };
+			print (" New Scale : " + $newScale[0] + " " + $newScale[1] + " " + $newScale[2] + "//n");
+			print("Matched Scale of - " + $newDot[0] + " To- " + $setMem[$j] + "//n");
+
+			xform -s $newScale[0] $newScale[1] $newScale[2] $newDot[0];
+			select -r $newDot[0];
+			// match translation of noise circle
+			select -add $setMem[$j];       
+			MatchTranslation;
+			// put the dot into the noiseDotsGroup1
+			parent $newDot $newGroup;
+			select -cl;
+
+			if (wizProgressCancelled() == 1) return;	
+
+		}
+		wizProgressWindowEnd();
+		wizlog("Set " + $i + " Complete. Saving File.");
+		file -f -save ;
+	}
+    
+}
+
+
+global proc wizCraftMakeBrailleRoundStars()
+{    
+    float $bbs2[] = `getAttr ("roundStarMesh1.boundingBoxSize")`; 
+    float $scale[] = `getAttr ("roundStarMesh1.scale")`;
+    string $sel[] = `ls -sl`;
+	wizlog("Generating " + `size $sel` + " Star Sets");
+	for ($i=0;$i<`size $sel`; $i++)
+    {
+		string $newGroup = `group -em -name ("roundStarsGroup_" + $sel[$i])`;
+
+		string $setMem[] = `sets -q $sel[$i]`;
+
+		wizlog("Generating " + `size $setMem` + " Round Stars");
+		wizProgressWindowStart("Generating " + `size $setMem` + " Round Stars", "Making Round Stars", 1);
+		wizProgressWindowMinMax(0,`size $setMem`);
+		/*
+		for ($i=1; $i<50; ++$i) 
+		{
+			instance starMesh1;
+		}
+		*/
+		for ($j=0;$j<`size $setMem`; $j++)
+		{
+			wizProgressWindowStep(1);
+			select -r "roundStarMesh1";
+			// instance the dot primitive
+			//select -r starMesh1;
+			string $newDot[] = `instance roundStarMesh1`;
+			// match the size of the noise circle
+			float $bbs1[] = `getAttr ($setMem[$j] + ".boundingBoxSize")`; 	    
+			float $sb[] = { ($bbs2[0] / $bbs1[0]), ($bbs2[1] / $bbs1[1]), ($bbs2[1] / $bbs1[1]) };	 
+			print("BBox1: " + $bbs1[0] + " " + $bbs1[1] + " " + $bbs1[2] + " BBox2: " + $bbs2[0] + " " + $bbs2[1] + " " + $bbs2[2]);  
+			float $newScale[] = { ($scale[0] / $sb[0]), ($scale[1] / $sb[1]), ($scale[1] / $sb[1]) };
+			print (" New Scale : " + $newScale[0] + " " + $newScale[1] + " " + $newScale[2] + "//n");
+			print("Matched Scale of - " + $newDot[0] + " To- " + $setMem[$j] + "//n");
+
+			xform -s $newScale[0] $newScale[1] $newScale[2] $newDot[0];
+			select -r $newDot[0];
+			// match translation of noise circle
+			select -add $setMem[$j];       
+			MatchTranslation;
+			// put the dot into the noiseDotsGroup1
+			parent $newDot $newGroup;
+			select -cl;
+
+			if (wizProgressCancelled() == 1) return;	
+
+		}
+		wizProgressWindowEnd();
+		wizlog("Set " + $i + " Complete. Saving File.");
+		file -f -save ;
+	}
+    
 }

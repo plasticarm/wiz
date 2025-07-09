@@ -328,6 +328,20 @@ global proc int randInt( int $min, int $max )
 	return $ranInt;	
 }
 
+global proc int randIntStream( string $streamName, int $min, int $max )
+{
+    if ($min == $max){ return $min;}
+	int $ranInt = int(floor(`rand $streamName $min ($max + 1)`));
+    if ($ranInt > $max){
+        $ranInt = $max;
+    }
+	wizlog ("[*] randIntStream : name : " + $streamName + " : " + $ranInt + ";\n");
+	// Add info about random stream
+	//https://help.autodesk.com/cloudhelp/2018/ENU/Maya-Tech-Docs/Commands/index.html
+	
+	return $ranInt;	
+}
+
 global proc int randomInt( int $min, int $max )
 {
 	int $ranInt = randInt($min, $max);

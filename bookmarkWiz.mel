@@ -427,8 +427,12 @@ global proc bookmarkWizCategoryMenu( string $cat)
 		
 		menuItem -l "Add Tag To Selected" -c ("wizAddTagToSelected(`ls -sl`, \"" + $cat + "\");");
 	
-		menuItem -l "Run Batch Process On List" -c ("wizBatchProcess(\"-tsl " + $cat + "\");");
-		menuItem -l "Run Batch Process On Selecte Files" -c ("wizBatchProcess(\"-tsl " + $cat + " -si\");");
+		menuItem -l "Run Batch Process On List" 
+		-ann "This will run commands in Batch Processing Wiz on listed files. See Sryptkeeper>BatchProcess"
+		-c ("wizBatchProcess(\"-tsl " + $cat + "\");");
+		menuItem -l "Run Batch Process On Selecte Files"
+		-ann "This will run commands in Batch Processing Wiz on selected files in list. See Sryptkeeper>BatchProcess" 
+		-c ("wizBatchProcess(\"-tsl " + $cat + " -si\");");
 	
 	setParent -menu..;
 	
@@ -1219,6 +1223,8 @@ global proc textScrollListBookmarksLayoutExpand( string $name )
     +"replaceTextScrollListWithSelectedObjects(" + $fileAliasVar + ", \"" + $bookmarkDirAliasList + "\");"+"\n"
     
 	);
+
+	//wizlog ("\n\n\n" + $addCommand + "\n\n\n");
     
 	// <ToDoWiz!> : Add Extra functionality - If a directory is chosen, then add all files in the directory.
 	//string $checkDirCommand = (
@@ -1468,6 +1474,11 @@ global proc textScrollListBookmarksLayoutExpand( string $name )
 			menuItem -l "Reference FBX" -c ("bookmarkWizAltFileLoading(\"-ext fbx -r -l " + $bookmarkFileList + "\");");
 			menuItem -l "Import FBX" -c ("bookmarkWizAltFileLoading(\"-ext fbx -i -l " + $bookmarkFileList + "\");");
 			
+			menuItem -d true -dl "OBJ";
+			menuItem -l "Open OBJ" -c ("bookmarkWizAltFileLoading(\"-ext obj -o -l " + $bookmarkFileList + "\");");			
+			menuItem -l "Reference OBJ" -c ("bookmarkWizAltFileLoading(\"-ext obj -r -l " + $bookmarkFileList + "\");");
+			menuItem -l "Import OBJ" -c ("bookmarkWizAltFileLoading(\"-ext obj -i -l " + $bookmarkFileList + "\");");
+
 			menuItem -d true -dl "Replace References";
 			menuItem -l "Replace References" -c $rrefCom;	
 			

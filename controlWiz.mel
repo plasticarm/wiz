@@ -1312,7 +1312,7 @@ global proc string wizIntSliderGrp( string $flags )
 {
 	string $name;
 	string $p, $l, $ann;
-	int $v;
+	int $v = 0;
 	int $min = 0;
 	int $max = 1;
 	int $fmn = -999999999;

@@ -1,0 +1,11 @@
+
+
+global proc wizCreateNarrative()
+{
+    /*
+    On this day, ____, at the time, ______
+    Filename ____ was created.
+    Machine name _____ was tasked at construction of a #th generation 
+    */
+    date -format "Year is YY (or YYYY), month is MM, day is DD. And it is now hh:mm:ss";
+}

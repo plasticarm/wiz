@@ -149,6 +149,18 @@ global proc batchProcessWizOptionsLayout( string $parent )
         +"-v 1 "
         +"-n batchProcessWizSaveCurrentFile"
 		);
+
+    wizCheckBox(
+        "-l Subdirectories "
+        +"-v 0 "        
+        +"-n batchProcessWizSubdirectories"
+		);  
+
+    wizCheckBox(
+        "-l Import Files "
+        +"-v 0 "        
+        +"-n batchProcessWizImportFiles"
+		);    
 		
     intSliderGrp 
         -l "Iterations" 
@@ -312,6 +324,7 @@ global proc batchProcessMainMenuItems()
 		
 		menuItem -l "FBX To MB" -c $fbxCom ;		
 		menuItem -l "OBJ To MB" -c $objCom ;
+        menuItem -l "MB To FBX" -c $fbxCom ;
 		menuItem -l "Batch Process Cad Files" -c ("batchProcessCadFiles(\"\");");
 		
 		
@@ -435,9 +448,33 @@ global proc batchProcessorProcess()
 	
 	} else {
 		// Else we are using the sryptkeeper List
-		$batchProcessFileList = `getFileList -fld $batchProcessPath -fs "*.ma"`;   
-		$batchProcessFileListmb = `getFileList -fld $batchProcessPath -fs "*.mb"`;   
-		appendStringArray ($batchProcessFileList, $batchProcessFileListmb, size($batchProcessFileListmb));  
+        if (`checkBox -q -v batchProcessWizSubdirectories`){
+            string $allDir[] = wizGetAllSubFoldersOfDirectory($batchProcessPath);
+            wizlog (niceArrayList("All Subdirectories : ", $allDir));
+			if (`size $allDir` == 0){
+                wizlog ("[!] No Subdirectories found in : " + $batchProcessPath);
+				return ;
+			}
+        
+            //stringArrayInsertAtIndex(0, $allDir, $dir);
+            //wizlog((niceArrayList("		[-] All Directories : ", $allDir )));
+        
+            for ($s=0;$s<`size $allDir`;$s++){
+                // Get the list of files in this directory
+                string $files[] = `getFileList -fld $allDir[$s] -fs "*.ma"`;
+                string $filesmb[] = `getFileList -fld $allDir[$s] -fs "*.mb"`;
+                $files = stringArrayAddPrefix($files, $allDir[$s]);
+                $files = stringArrayAddPrefix($filesmb, $allDir[$s]);
+                wizlog(niceArrayList("		[-] Files : ", $files ));
+                
+                appendStringArray($batchProcessFileList, $files, `size $files`);
+
+            }
+        } else {
+		    $batchProcessFileList = `getFileList -fld $batchProcessPath -fs "*.ma"`;   
+	        $batchProcessFileListmb = `getFileList -fld $batchProcessPath -fs "*.mb"`;   
+		    appendStringArray ($batchProcessFileList, $batchProcessFileListmb, size($batchProcessFileListmb));  
+        }
 	}
 	
     int $batchProcessFilter = `radioButtonGrp -q -sl batchProcessFilter`;
@@ -509,15 +546,26 @@ global proc batchProcessorProcess()
 	
 		if ($useTSL){
 			$batchProcessFile = $batchProcessFileList[$i]; 
-		} else {
-			$batchProcessFile = $batchProcessPath + $batchProcessFileList[$i];  
+		} else{
+            if (`checkBox -q -v batchProcessWizSubdirectories`){
+                $batchProcessFile = $batchProcessFileList[$i];
+            } else {
+			    $batchProcessFile = $batchProcessPath + $batchProcessFileList[$i];  
+            }
 		}
 		
         $WIZ_batchProcessLog = ($WIZ_batchProcessLog + "\n\n Opening file " + ($i+1) + " / " + $BP_listsize + ": " + $batchProcessFileList[$i]);
         
         // ==========================     
-        file -f -prompt 0 -open $batchProcessFile;
-        $WIZ_batchProcessLog = ($WIZ_batchProcessLog + "\n   File opened.");             
+        if (`checkBox -q -v batchProcessWizImportFiles`){
+            file -import -type "mayaBinary" -ignoreVersion -ra true -mergeNamespacesOnClash false -options "v=0;"  -pr  -importTimeRange "combine" $batchProcessFile;
+            global string $WIZ_lastImportedFile;
+            $WIZ_lastImportedFile = $batchProcessFile;
+            $WIZ_batchProcessLog = ($WIZ_batchProcessLog + "\n   File imported.");   
+        } else {
+            file -f -prompt 0 -open $batchProcessFile;
+            $WIZ_batchProcessLog = ($WIZ_batchProcessLog + "\n   File opened.");   
+        }          
                     
         // EXECUTE COMMAND
         if ($batCommandsize != 0){           

@@ -1484,6 +1484,13 @@ global proc string[] getObjectsInSelectedGroups(string $sel[])
 	return $heirarchy;
 }
 
+global proc wizSelectAllInvisibleTransforms()
+{
+	string $sel[] = `ls -type transform -iv`;
+	select -r $sel;
+
+}
+
 //GET GEOMETRY TRANSFORMS IN HEIRARCHY
 //---------------------------------------------
 global proc string[] getGeometryTransformsInHeirarchy(string $sel[])

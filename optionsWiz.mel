@@ -4721,6 +4721,13 @@ global proc posterImageOptions( string $parent )
 		+"-n posterImage_copyDirectory_textFieldButtonGrp"
 		);
 		
+	wizTextFieldButtonGrp(
+		"-l Poster Filename "
+		+"-tx C: "
+		+"-bl Select "
+		+"-bc ad "
+		+"-n posterImage_currentPosterFilename_textFieldButtonGrp"
+		);
 }
 
 
@@ -5235,7 +5242,7 @@ global proc wizExportEachSelectionToFileOptions( string $parent )
 	setParent $columnLayout;
 	//... content...
 
-	string $menuItemLabels[] = { "mayaBinary", "mayaAscii", "obj", "fbx", "abc" };
+	string $menuItemLabels[] = { "mayaBinary", "mayaAscii", "obj", "fbx", "abc", "stl" };
 	string $omg = wizOptionMenuGrpMenuItems("Export File Type", "wizExportEachSelAsFile_exportType_optionMenuGrp", $menuItemLabels);
 
 	/*

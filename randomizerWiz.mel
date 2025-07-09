@@ -12,7 +12,12 @@ Website: plasticarm.com / hrpictures.com
 ----------------------------------------------------------
 Summary:
 
+ToDo:
 
+Option to bake all textures and save to output folder
+Option to remove all excess geometry and unused nodes before exporting all
+Option to convert pfx hair to geometry(flat) and skin for game engine
+Lod mesh naming and processing
 
 ====================================================================*/
 
@@ -63,6 +68,15 @@ global proc randomizerControlLayout( string $parent )
 	
 	wizFilePalletLayout("-root randomizeQue -n randomizeQue -p " + $randomizeColumnLayout);
 	wizFilePalletLayout("-root randomizeQue -n randomizationFileQue -type fileList -p " + $randomizeColumnLayout);
+	wizFilePalletLayout("-root randomizeQue -n batchRenderFileQue -type fileList -p " + $randomizeColumnLayout);
+
+	iconTextButton
+        -l "Render Batch Render Que"
+		-image "wiz/magicIcon1.png"
+		-style "iconAndTextHorizontal"
+        //-bgc $butCol[0] $butCol[1] $butCol[2]
+        -c ("wizBatchRenderBatchRenderQue();")
+        ;
 
 	/*	
 	//-------------------------------------------------------
@@ -167,6 +181,13 @@ global proc wizCraftRandomizeControlsLayout( string $parent )
 			-style "iconAndTextHorizontal"
 			-c ("wizCraftMaterialPool(\"-rand -all\");")
 			;
+
+		iconTextButton
+			-l "All MASH Nodes"
+			-image "wiz/materialPoolAllIcon_small1.png"
+			-style "iconAndTextHorizontal"
+			-c ("wizRandomMASHReproObjects(\"-r -all\");")
+			;
 			
 		separator -w 150 -st "out";
 				
@@ -203,8 +224,15 @@ global proc wizCraftRandomizeControlsLayout( string $parent )
 			-l "Selected Material Pools"
 			-image "wiz/materialPoolIcon_small1.png"
 			-style "iconAndTextHorizontal"
-			-c -c ("wizCraftMaterialPool(\"-rand -sl\");")
+			-c ("wizCraftMaterialPool(\"-rand -sl\");")
 			;	
+
+		iconTextButton
+			-l "Selected MASH Nodes"
+			-image "wiz/materialPoolIcon_small1.png"
+			-style "iconAndTextHorizontal"
+			-c ("wizRandomMASHReproObjects(\"-sl -r\");")
+			;
 		
 			
 		separator -w 150 -st "out";
@@ -214,9 +242,23 @@ global proc wizCraftRandomizeControlsLayout( string $parent )
 			-image "wiz/incrementAndSaveIcon_tiny1.png"
 			-style "iconAndTextHorizontal"
 			-c ("incrementAndSaveWiz();")
-			;
+			;			
 
 		$butCol = getWizColor("exportButtonColor");   	
+
+		iconTextButton
+			-l "Macro Render"
+			-image "wiz/incrementAndSaveIcon_tiny1.png"
+			-style "iconAndTextHorizontal"
+			-c ("wizRenderPosterWithMacro();")
+			;
+
+		iconTextButton
+			-l "Macro Save Poster"
+			-image "wiz/incrementAndSaveIcon_tiny1.png"
+			-style "iconAndTextHorizontal"
+			-c ("wizMacroSavePosterImage();")
+			;	
 
 		separator -w 150 -st "out";
 		
@@ -339,7 +381,12 @@ global proc wizCraftAutoBuildLayout( string $parent )
 		"-l Build "
 		+"-v 0 "
 		+"-n wizCraft_build_checkBox");	
-		
+
+	wizCheckBox(
+		"-l Render Textures "
+		+"-v 1 "
+		+"-n wizCraft_renderTextures_checkBox");
+
 	wizCheckBox(
 		"-l Render Poster "
 		+"-v 1 "
@@ -360,6 +407,11 @@ global proc wizCraftAutoBuildLayout( string $parent )
 		+"-v 0 "
 		+"-n wizCraft_batchRender_checkBox");
 		
+	wizCheckBox(
+		"-l Add To Batch Que "
+		+"-v 0 "
+		+"-n wizCraft_addToBatchRenderQue_checkBox");
+
 	separator -w 150 -st "out";
 	
 	wizCheckBox(
@@ -367,6 +419,13 @@ global proc wizCraftAutoBuildLayout( string $parent )
 		+"-v 1 "
 		+"-n wizCraft_skipExistingFiles_checkBox");
 		
+		// Testing Automation
+	wizCheckBox(
+		"-l Use Timed Delay "
+		+"-ann If using octane or IPR. Use timed delay! Read Documention if saying, huh?"
+		+"-v 0 "
+		+"-n wizCraft_randomizationTimedDelay_checkBox");
+
 	separator -w 150 -st "out";
 	
 	wizFloatSliderGrp( 
@@ -410,6 +469,27 @@ global proc wizCraftAutoBuildLayout( string $parent )
         -adj 3 
 		randomizerWizAutoBuildIterationsIntSliderGrp
         ;
+	
+	separator -w 150 -st "out";
+	 // Testing Automation
+	wizIntSliderGrp( 
+        "-l Current " 	
+        +"-v 0 "
+		+"-min 0 "
+		+"-max 1000 "
+		+"-fmn 0 "
+		+"-fmx 999999999 "
+        +"-n randomizerWizAutoBuildCurrentIterationIntSliderGrp"	
+        );
+
+	intSliderGrp
+		-e
+		-cal 1 "left" 
+        -cw3 50 50 50 
+        -adj 3 
+		randomizerWizAutoBuildCurrentIterationIntSliderGrp
+        ;
+	
 
 	separator -w 150 -st "out";
 	
@@ -421,7 +501,18 @@ global proc wizCraftAutoBuildLayout( string $parent )
         -c ("wizAutoBuildAllRandomizableObjects();")
         ;
 
-
+	
+/*
+	wizFloatSliderGrp( 
+        "-l Delay Time " 	
+        +"-v 30.0 "
+		+"-min 0.0 "
+		+"-max 10000.0 "
+		+"-fmn 0.0 "
+		+"-fmx 999999999.0 "
+        +"-n randomizerWizAutoBuildDelayTimeFloatSliderGrp"	
+        );
+		*/
 }
 
 global proc randomizerObjectControlsLayout( string $flags )
@@ -492,8 +583,11 @@ global proc randomizerMainMenuBarLayout()
 		menuItem -l "Save Thumbnail" -c ("saveSceneThumbnailImage();");
 			menuItem -ob true -c ("openCurrentOptionsLayout(\"sceneThumbnailOptions\");");
 			
-		menuItem -l "Render Poster Image" -c ("saveScenePosterImage();");
+		menuItem -l "Render Poster Image" -c ("wizRenderPosterWithMacro();");
 			menuItem -ob true -c ("openCurrentOptionsLayout(\"posterImageOptions\");");
+
+		menuItem -l "Render Export Textures" -c ("wizCraftRenderExportTextures();");
+			menuItem -ob true -c ("openCurrentOptionsLayout(\"posterImageOptions\");");	
 		
     menu -l "Export" -to true;
 			menuItem -l "Create Export Set From Selection" -c ("wizExportSet(\"-sl -ns\");");
@@ -656,19 +750,24 @@ global proc wizCraftAddControlsToUI( string $flags )
 *********************************************************************/
 global proc wizAutoBuildAllRandomizableObjects()
 {
+	
     wizlog ("[@] wizAutoBuildAllRandomizableObjects"); 
     int $iCount = `intSliderGrp -q -v randomizerWizAutoBuildIterationsIntSliderGrp`;
-			
+	global int $WIZ_readyToRender;
+	$WIZ_readyToRender = 1;		
 	string $sel[] = `ls -sl`;
-	
+	/*
 	string $fileQue[] = `textScrollList -q -ai RandomizationFileQueBookmarksTextScrollList`;
 	if (`size $fileQue` == 0){
 		$fileQue[0] = `file -q -sn`;
 	} else {
 		if ((wizInformationDialog("Process File Que?", ("Process " + `size $fileQue` + " Files In File Que?"), "OK", "Cancel")) == 0){return;}
 	}
-	
-	for ($fi=0;$fi<`size $fileQue`;$fi++){				
+	*/
+	string $fileQue[];
+	$fileQue[0] = `file -q -sn`;
+	for ($fi=0;$fi<`size $fileQue`;$fi++){	
+
 		string $curFile = `file -q -sn`;
 		if ($curFile != $fileQue[$fi]){
 			file -f -o $fileQue[$fi];
@@ -679,10 +778,25 @@ global proc wizAutoBuildAllRandomizableObjects()
 		wizProgressWindowMinMax(0,$max);
 		wizLog ("[-] Wiz Auto Build Starting [-]" + wizDiv("s"));
 		
-		for ($i=0;$i<$iCount;$i++){
+		//******************* */	
+		// Do we want to use the timed delay process instead of the regular serial processing?
+		if (`checkBox -q -v wizCraft_randomizationTimedDelay_checkBox`){
+			wizLog ("	[*] AUTOBUILD USING --TIMED DELAY-- : [EACH ITERATION HAS x AMOUNT OF TIME TO GENERATE]");
+			wizInitAutoBuildAllRandomizableObjectsTimedDelay();
+			return ;
+			//wizThreadedTimerCallback($delayTime, "wizAutoBuildAllRandomizableObjectsTimedDelay");
+		}
+		
+		//******************* */
+
+		for ($i=0;$i<$iCount;$i++){	
+			
 			wizProgressWindowUpdate(("Processing... File : " + $i + " : Of : " + $iCount), 1);
 			wizLog ("	[#] Processing File : " + $i + " : Of : " + $iCount + " [#]");
 			
+			wizFileRandomizationRoutine();
+
+			/*
 			//_________________________________________
 			// Material Pools
 			if (`checkBox -q -v wizCraft_randomizeMaterialPools_checkBox`){
@@ -699,6 +813,12 @@ global proc wizAutoBuildAllRandomizableObjects()
 			// Import Pools
 			if (`checkBox -q -v wizCraft_randomizeImportPools_checkBox`){
 				wizCraftImportAllImportPools();
+			}
+
+			//_________________________________________
+			// Reference Pools
+			if (`checkBox -q -v wizCraft_randomizeReferencePools_checkBox`){
+				wizCraftRandomizeAllReferencePools();
 			}
 			
 			//_________________________________________
@@ -765,9 +885,17 @@ global proc wizAutoBuildAllRandomizableObjects()
 			
 			//_________________________________________
 			// Batch Render		
-			if (`checkBox -q -v wizCraft_batchRender_checkBox`){
+			if (`checkBox -q -v wizCraft_batchRender_checkBox` && `checkBox -q -v wizCraft_addToBatchRenderQue_checkBox` == 0){
 				batchRender;
+				
 			}
+
+			//_________________________________________
+			// Batch Render	Que	
+			if (`checkBox -q -v wizCraft_addToBatchRenderQue_checkBox`){
+				wizAddCurrentFileToBatchRenderList();				
+			}
+			
 						
 			wizProgressWindowUpdate("Processing... ", 1);
 					
@@ -783,7 +911,7 @@ global proc wizAutoBuildAllRandomizableObjects()
 			
 			refresh -f;
 			refreshAE;
-			
+			*/
 		}
 	}
 	
@@ -791,7 +919,352 @@ global proc wizAutoBuildAllRandomizableObjects()
 
 	wizLog ("[-] Wiz Auto Build Complete [-]" + wizDiv("e"));
 
+	// If the batch render and add to batch renderQue checkboxes are both checked... Then we want to render
+	// after everything is processes. Logically.
+	if (`checkBox -q -v wizCraft_batchRender_checkBox` && `checkBox -q -v wizCraft_addToBatchRenderQue_checkBox`)
+	{
+		wizRenderBatchRenderQue();
+	}
+
 }
+
+global proc wizInitAutoBuildAllRandomizableObjectsTimedDelay()
+{
+	//global int $WIZ_readyToRender;
+	//$WIZ_readyToRender = 1;
+    wizlog ("[@] wizAutoBuildAllRandomizableObjectsTimedDelay"); 
+    int $iCount = `intSliderGrp -q -v randomizerWizAutoBuildIterationsIntSliderGrp`;
+	global int $WIZ_currentFileIteration;
+	$WIZ_currentFileIteration = 0;
+
+	intSliderGrp -e -v $WIZ_currentFileIteration randomizerWizAutoBuildCurrentIterationIntSliderGrp;
+	$curI = $WIZ_currentFileIteration;
+	
+	
+	wizProgressWindowStart("Auto Build Randomizing All", "Starting", 1);
+	int $max = $iCount;
+	wizProgressWindowMinMax(0,$max);
+	wizLog ("[-] Wiz Auto Build Starting [-]" + wizDiv("s"));
+	
+	
+	wizProgressWindowUpdate(("Processing... File : " + $curI + " : Of : " + $iCount), 1);
+	wizLog ("	[#] Processing File : " + $curI + " : Of : " + $iCount + " [#]");
+
+	wizAutoBuildAllRandomizableObjectsTimedDelay();
+
+}
+
+global proc wizAutoBuildAllRandomizableObjectsTimedDelay()
+{	
+	refresh -f;
+	refreshAE;
+	global int $WIZ_currentFileIteration;
+	//global int $WIZ_readyToRender;
+    wizlog ("[@] wizAutoBuildAllRandomizableObjectsTimedDelay"); 
+    int $iCount = `intSliderGrp -q -v randomizerWizAutoBuildIterationsIntSliderGrp`;
+	
+	//int $curI = `intSliderGrp -q -v randomizerWizAutoBuildCurrentIterationIntSliderGrp`;
+	int $curI = $WIZ_currentFileIteration;
+
+	wizlog ("[*] current iteration : " + $curI + " : of : " + $iCount); 
+	if (wizProgressCancelled() == 1) return;
+
+	// End the processing ?
+	if ($curI > $iCount)	{
+		
+		wizProgressWindowEnd();
+		
+		wizLog ("[-] Wiz Auto Build Complete [-]" + wizDiv("e"));
+
+/*		
+		// If the batch render and add to batch renderQue checkboxes are both checked... Then we want to render
+		// after everything is processes. Logically.
+		if (`checkBox -q -v wizCraft_batchRender_checkBox` && `checkBox -q -v wizCraft_addToBatchRenderQue_checkBox`)
+		{
+			wizRenderBatchRenderQue();
+		}
+*/
+		// Reset the CurrentI slider
+		intSliderGrp -e -v 0 randomizerWizAutoBuildCurrentIterationIntSliderGrp;
+		//$WIZ_currentFileIteration = 0;
+		return ;
+	} else {
+		wizFileRandomizationTimedRoutine();
+
+		// Increment the curI slider
+		$curI++;
+		$WIZ_currentFileIteration = $curI;
+		intSliderGrp -e -v $curI randomizerWizAutoBuildCurrentIterationIntSliderGrp;
+		refresh -f;
+		refreshAE;
+		// Repeat and rinse
+		wizLog ("[-] Iteration : " + $curI + " Complete [-]");
+		//wizThreadedTimerCallback($delayTime, "wizAutoBuildAllRandomizableObjectsTimedDelay");
+	}
+
+	return;
+}
+
+global proc wizEndRandomizationRoutine()
+{
+	global int $WIZ_currentFileIteration;
+	wizProgressWindowEnd();
+	$WIZ_currentFileIteration = 0;
+	intSliderGrp -e -v 0 randomizerWizAutoBuildCurrentIterationIntSliderGrp;
+	wizLog ("	[*********] STOP RANDOMIZING AND RENDERING  [**********] ");
+		
+
+}
+
+global proc wizFileRandomizationTimedRoutine()
+{
+	wizLog ("	[+++++] Randomization Routine Starting [+++++] ");
+	//_________________________________________
+	// Material Pools
+	if (`checkBox -q -v wizCraft_randomizeMaterialPools_checkBox`){
+		wizCraftMaterialPool("-rand -all");
+	}
+	
+	//_________________________________________
+	// Texture Pools
+	if (`checkBox -q -v wizCraft_randomizeTexturePools_checkBox`){
+		randomizeAllTexturePools();
+	}
+	
+	//_________________________________________
+	// Import Pools
+	if (`checkBox -q -v wizCraft_randomizeImportPools_checkBox`){
+		wizCraftImportAllImportPools();
+	}
+
+	//_________________________________________
+	// Reference Pools
+	if (`checkBox -q -v wizCraft_randomizeReferencePools_checkBox`){
+		wizCraftRandomizeAllReferencePools();
+	}
+	
+	//_________________________________________
+	// Ramputations
+	if (`checkBox -q -v wizCraft_randomizeRamputations_checkBox`){
+		randomizeAllRamputations();           
+	}
+	
+	//_________________________________________
+	// Radomization Attributes
+	if (`checkBox -q -v wizCraft_randomizeRandomizationAttributes_checkBox`){
+		randomizeAllObjectsWithRandomizationAttributes();
+	}			
+	
+	refresh -f;
+	refreshAE;
+
+	//_________________________________________
+	// WizCraft Build
+	if (`checkBox -q -v wizCraft_build_checkBox`){
+		wizCraftDoBuild;
+	}
+
+	//_________________________________________
+	// WizCraft Build
+	if (`checkBox -q -v wizCraft_renderTextures_checkBox`){
+		wizCraftRenderExportTextures();
+	}
+	
+	refresh -f;
+	refreshAE;
+	//_________________________________________
+	// Run Simulation
+	if (`floatSliderGrp -q -v randomizerWiz_preRenderPlaybackFrameCount_floatSliderGrp` > 0.0){
+		float $fc = `floatSliderGrp -q -v randomizerWiz_preRenderPlaybackFrameCount_floatSliderGrp`;
+		wizRunSimulation("-f " + $fc);
+	}
+	
+
+	//_________________________________________
+	// Increment And Save
+	if (`checkBox -q -v wizCraft_skipExistingFiles_checkBox` == 1){
+		wizIncrementAndSave("-se");
+	} else {
+		wizIncrementAndSave("");
+	}
+	
+		
+
+	
+	//_________________________________________
+	// Export Sets	
+	if (`checkBox -q -v wizCraft_exportExportSets_checkBox`){
+		wizExportSet("-exportAll -deo");
+		wizMeshThumbnailImage(`file -q -sn`);
+	}
+
+	wizProgressWindowUpdate("Processing... ", 1);
+					
+	if (wizProgressCancelled() == 1) return;
+
+	//_________________________________________
+	// Render Poster Image
+	if (`checkBox -q -v wizCraft_renderPoster_checkBox`){
+		//saveScenePosterImage();
+		wizRenderPosterWithMacro();
+
+	}
+	
+	//_________________________________________
+	// Batch Render		
+	if (`checkBox -q -v wizCraft_batchRender_checkBox` && `checkBox -q -v wizCraft_addToBatchRenderQue_checkBox` == 0){
+		batchRender;
+		
+	}
+
+	//_________________________________________
+	// Batch Render	Que	
+	if (`checkBox -q -v wizCraft_addToBatchRenderQue_checkBox`){
+		wizAddCurrentFileToBatchRenderList();				
+	}
+	
+	//_________________________________________
+	// Rewind
+	if (`floatSliderGrp -q -v randomizerWiz_preRenderPlaybackFrameCount_floatSliderGrp` > 0.0){
+		// rewind to beginning
+		float $minTime = `playbackOptions -q -min`;
+		currentTime -e $minTime;
+	}
+	
+	refresh -f;
+	refreshAE;
+
+	wizLog ("	[____] Randomization Routine Ended [____] ");
+				
+
+}
+
+global proc wizFileRandomizationRoutine()
+{
+		
+	//_________________________________________
+	// Material Pools
+	if (`checkBox -q -v wizCraft_randomizeMaterialPools_checkBox`){
+		wizCraftMaterialPool("-rand -all");
+	}
+	
+	//_________________________________________
+	// Texture Pools
+	if (`checkBox -q -v wizCraft_randomizeTexturePools_checkBox`){
+		randomizeAllTexturePools();
+	}
+	
+	//_________________________________________
+	// Import Pools
+	if (`checkBox -q -v wizCraft_randomizeImportPools_checkBox`){
+		wizCraftImportAllImportPools();
+	}
+
+	//_________________________________________
+	// Reference Pools
+	if (`checkBox -q -v wizCraft_randomizeReferencePools_checkBox`){
+		wizCraftRandomizeAllReferencePools();
+	}
+	
+	//_________________________________________
+	// Ramputations
+	if (`checkBox -q -v wizCraft_randomizeRamputations_checkBox`){
+		randomizeAllRamputations();           
+	}
+	
+	//_________________________________________
+	// Radomization Attributes
+	if (`checkBox -q -v wizCraft_randomizeRandomizationAttributes_checkBox`){
+		randomizeAllObjectsWithRandomizationAttributes();
+	}		
+	
+	//wizCraftImportAllImportPools();
+	
+	refresh -f;
+	refreshAE;
+	
+	//_________________________________________
+	// WizCraft Build
+	if (`checkBox -q -v wizCraft_build_checkBox`){
+		wizCraftDoBuild;
+	}
+	
+	refresh -f;
+	refreshAE;
+	
+	//_________________________________________
+	// Run Simulation
+	if (`floatSliderGrp -q -v randomizerWiz_preRenderPlaybackFrameCount_floatSliderGrp` > 0.0){
+		float $fc = `floatSliderGrp -q -v randomizerWiz_preRenderPlaybackFrameCount_floatSliderGrp`;
+		wizRunSimulation("-f " + $fc);
+	}
+	
+	refresh -f;
+	refreshAE;
+				
+	//_________________________________________
+	// Increment And Save
+	if (`checkBox -q -v wizCraft_skipExistingFiles_checkBox` == 1){
+		wizIncrementAndSave("-se");
+	} else {
+		wizIncrementAndSave("");
+	}
+	
+	refresh -f;
+	refreshAE;
+	
+	if (wizProgressCancelled() == 1) return;
+	
+	//_________________________________________
+	// WizCraft Build
+	if (`checkBox -q -v wizCraft_renderTextures_checkBox`){
+		wizlog("-------------- RENDERING EXPORT TEXTURES --------------------");
+		wizCraftRenderExportTextures();
+	}
+
+	//_________________________________________
+	// Render Poster Image
+	if (`checkBox -q -v wizCraft_renderPoster_checkBox`){
+		saveScenePosterImage();
+	}
+	
+	//_________________________________________
+	// Export Sets	
+	if (`checkBox -q -v wizCraft_exportExportSets_checkBox`){
+		wizExportSet("-exportAll -deo");
+		wizMeshThumbnailImage(`file -q -sn`);
+	}
+	
+	//_________________________________________
+	// Batch Render		
+	if (`checkBox -q -v wizCraft_batchRender_checkBox` && `checkBox -q -v wizCraft_addToBatchRenderQue_checkBox` == 0){
+		batchRender;
+		
+	}
+
+	//_________________________________________
+	// Batch Render	Que	
+	if (`checkBox -q -v wizCraft_addToBatchRenderQue_checkBox`){
+		wizAddCurrentFileToBatchRenderList();				
+	}
+	
+				
+	wizProgressWindowUpdate("Processing... ", 1);
+			
+	if (wizProgressCancelled() == 1) return;
+	
+		//_________________________________________
+	// Rewind
+	if (`floatSliderGrp -q -v randomizerWiz_preRenderPlaybackFrameCount_floatSliderGrp` > 0.0){
+		// rewind to beginning
+		float $minTime = `playbackOptions -q -min`;
+		currentTime -e $minTime;
+	}
+	
+	refresh -f;
+	refreshAE;
+}
+
 
 //========================================================================================================
 //<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -895,6 +1368,7 @@ global proc createRandomizationAttributesForSelected( string $obj, string $attr[
 			$ai = 1;
 			break ;
 			
+			
 		}
 	}
 		
@@ -910,6 +1384,20 @@ global proc createRandomizationAttributesForSelected( string $obj, string $attr[
 	}
 }
 
+global proc string createRandomizeMASHReproAttribute( string $obj )
+{
+	string $ln = "randomizeRepro";
+	string $nn = "randomRepro";
+	
+	if (`attributeExists $ln $obj` == 0){
+		addAttr -ln $ln -nn $nn -at bool $obj;
+		setAttr -e -keyable true ($obj + "." + $ln);
+		setAttr ($obj + ".randomizeRepro") true;		
+	} else {
+		setAttr ($obj + ".randomizeRepro") true;
+	}
+	return $ln;
+}
 
 global proc string createRandomizeBoolAttribute( string $obj, string $attr )
 {
@@ -1782,7 +2270,8 @@ global proc randomizeAllObjectsWithRandomizationAttributes()
     string $allRandomizeObj[] = getAllObjectsWithRandomizationAttributes();
 	wizlog ((niceArrayList("	[All RANDOMIZATION OBJECTS]", $allRandomizeObj)));
     randomizeRandomizationAttributesOnSelectedObjects($allRandomizeObj);
-    	
+    wizRandomMASHReproObjects("-r -all");
+
 }
 
 //@ RANDOMIZE RANDOMIZATION ATTRIBUTES ON SELECTED OBJECTS
@@ -1792,6 +2281,11 @@ global proc randomizeRandomizationAttributesOnSelectedObjects( string $sel[] )
     for ($i=0;$i<`size $sel`;$i++){
         randomizeRandomizationAttributesOnSelectedObject($sel[$i]);
     }
+}
+
+global proc wizCraftRandomizeAllReferencePools(  )
+{
+
 }
 
 /*======================| SUMMARY |===================================
@@ -2715,6 +3209,49 @@ global proc randomizationAttributeAssetPublish( string $flags )
 }
 
 
+//========================================================================================================
+//<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+///////////////////                                 //////////////////////////////////////////////////////
+//                         RANDOMIZE XFORM
+///////////////////                                 //////////////////////////////////////////////////////
+//<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+//========================================================================================================
+
+global proc transformRandomizerLayout( string $parent )
+{
+	string $layout = wizStandardFrameLayout($parent, "Transform Randomizer ", "randomizerWiz_transformRandomizer_frameLayout");
+	string $axis[] = { "X", "Y", "Z" };
+	string $axisOmg = wizOptionMenuGrpMenuItems("Rotation Axis", "transformRandomizer_rotationAxis_optionMenuGrp", $axis);
+	
+	wizIntSliderGrp(
+		"-l Degrees "
+		+"-min 1 "
+		+"-max 360 "
+		+"-fmn 1 "
+		+"-fmx 360 "
+		+"-v 90 "
+		+"-n transformRandomizer_incrementDegrees_intSliderGrp"
+		);
+
+	string $bc = ("int $deg = `intSliderGrp -q -v transformRandomizer_incrementDegrees_intSliderGrp`;"+"\n"
+	+"string $ax = `optionMenuGrp -q -v transformRandomizer_rotationAxis_optionMenuGrp`;"+"\n"
+	+"wizCreateIncrementalRotationControl(\"-sl -a \" + $ax + \" -d \" + $deg);");
+
+
+	button 
+		-l "Create Incremental Rotation Control" 
+		-c $bc
+		;
+
+	button 
+	-l "Proportional Scale Connections" 
+	-c ("wizProportionalScaleConnect(\"-sl\");");
+	;
+
+		
+
+}
+
 
 //========================================================================================================
 //<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -3274,3 +3811,247 @@ global proc executerandomizeXForm()
 
 
 }
+
+global proc wizRandomMASHReproObjects(string $flags)
+{
+	string $sel[] = `ls -sl`;
+	string $reproNodes[] ;
+	string $tok[] = tokenizeString($flags, " ");
+	int $doRan = 0;
+	int $addRan = 0;
+	for ($i=0;$i<`size $tok`;$i++){
+		switch ($tok[$i]){
+			case "-sl" : case "-selected" :
+			$sel = `ls -sl`;
+			$reproNodes = smartSelectObjectsOfType($sel, "MASH_Repro");
+			break ;	
+
+			case "-add" :				
+			$addRan = 1;
+			break;
+			/* ADD option of randomizing all mash repros
+			*/
+			case "-all" :				
+			$reproNodes = `ls -type "MASH_Repro"`;
+			break;
+			
+			case "-r" : case "-randomize" :
+			$doRan = 1;
+			break ;
+		}
+	}
+
+	if (`size $reproNodes` == 0){
+		if (`size $sel` == 0){
+			if ($addRan){
+				wizlog ("[!] Nothing is selected to find MASH_Repro Nodes from. Make sure there are repro nodes in the scene.");
+			}
+			return ;
+		}
+		$reproNodes = smartSelectObjectsOfType($sel, "MASH_Repro");
+	}
+
+	if ($addRan){
+		if (`size $reproNodes` == 0){
+			wizlog ("[!] No MASH_Repro Nodes Found. Make sure there are repro nodes in the scene.");
+			return ;
+		}
+		for ($i=0;$i<`size $reproNodes`;$i++){
+			createRandomizeMASHReproAttribute($reproNodes[$i]);
+		}
+	}
+
+	// run python command to randomize repro list
+	if ($doRan == 1){
+		for ($i=0;$i<`size $reproNodes`;$i++){
+			if (`attributeExists "randomizeRepro" $reproNodes[$i]` == 1 && `getAttr ($reproNodes[$i] + ".randomizeRepro")` == 1){
+				string $pyCom = (
+				"import mash_repro_utils as repro\n"
+				+"import mash_repro_aetemplate as AErepro\n"
+				+"import random\n"
+				+"new_order = maya.cmds.getAttr(\"%s.instancedGroup\" % '" + $reproNodes[$i] + "', mi=True) or []\n"
+				+"items_count = len(new_order)\n"
+				+"ranItem = random.randint(0,items_count)\n"
+				+"new_order.pop(0)\n"
+				+"new_order.insert(ranItem, 0)\n"
+				+"repro.reorder_mesh_group_node('" + $reproNodes[$i] + "', new_order)\n"
+				);
+				python($pyCom);
+			} else {
+				wizlog ("[!] Random Repro Attribute might be turned off or doesn't exist yet. Run Add Add Mash Repro Randomization from the create menu dropdown.");
+			
+			}
+		}
+
+	}
+
+	
+}
+
+
+global proc wizAddCurrentFileToBatchRenderList()
+{
+	string $sceneFiles[];
+	$sceneFiles[0] = `file -q -sn`;
+
+	addSelectedObjectsToTextScrollList($sceneFiles, "BatchRenderFileQueBookmarksTextScrollList");
+	string $BatchRenderFileQueAllItems[] = `textScrollList -q -ai "BatchRenderFileQueBookmarksTextScrollList"`;
+	if(`size $BatchRenderFileQueAllItems` > 1){
+		removeDuplicatesFromTextScrollList("BatchRenderFileQueBookmarksTextScrollList");
+	}
+	string $BatchRenderFileQueAI[];
+	clear $BatchRenderFileQueAI;
+	$BatchRenderFileQueAI = `textScrollList -q -ai "BatchRenderFileQueBookmarksTextScrollList"`;
+	string $BatchRenderFileQueFileAlias[] ;
+	clear $BatchRenderFileQueFileAlias;
+	string $BatchRenderFileQueFileAliasDir[];
+	for($i=0;$i<`size $BatchRenderFileQueAI`;$i++){
+		$BatchRenderFileQueFileAlias[$i] = getFileNameNoPathNoExt($BatchRenderFileQueAI[$i]);
+		$BatchRenderFileQueFileAliasDir[$i] = getDirectoryFromFullFilePath($BatchRenderFileQueAI[$i]);
+	}
+	replaceTextScrollListWithSelectedObjects($BatchRenderFileQueFileAlias, "BatchRenderFileQueBookmarkAliasTextScrollList");
+	overwriteTextScrollListOptionVar("WIZ_BatchRenderFileQueBookmarkFiles", "BatchRenderFileQueBookmarksTextScrollList");
+	replaceTextScrollListWithSelectedObjects($BatchRenderFileQueFileAliasDir, "BatchRenderFileQueDirBookmarksTextScrollList");
+	replaceTextScrollListWithSelectedObjects($BatchRenderFileQueFileAlias, "BatchRenderFileQueDirBookmarkDirAliasTextScrollList");
+
+}
+
+
+
+//@ WIZ GENERATE RANDOM NAMES
+//====================================================================
+/*****************************************************************//**
+	Generates a random names from a source.
+	If no source url or file is provided default dictionary is used.
+	<hr>
+	<b>Synopsis</b><br>
+	wizGenerateRandomNames [-src string] [-url string] [-type string] <br>
+	Valid types : Normal, Silly, Strange, Word
+	
+	<b>Return value</b><br>
+	string[] A first and last name
+	
+	<b>Flags</b><br>
+	-source(-src) <br>
+	-url(-url) <br>
+	-type <br>
+
+	<hr>
+	<b>Related</b><br>
+	someProcedure(),
+	
+	<b>Examples</b><br>
+	<code>
+	string $randCharName = wizGenerateRandomNames("");
+	print($randCharName);
+	// Madeleine Scotia
+
+	</code>
+*********************************************************************/
+global proc string wizGenerateRandomNames(string $flags)
+{
+	/*
+	sources
+	https://www.mit.edu/~ecprice/wordlist.10000
+	http://svnweb.freebsd.org/csrg/share/dict/words?view=co&content-type=text/plain
+	http://www.gwicks.net/dictionaries.htm
+
+	ref
+	https://snyk.io/advisor/python/python-random-name-generator
+	https://stackoverflow.com/questions/18834636/random-word-generator-python/49524775#49524775
+	https://www.andrewjmoodie.com/blog/2018/03-28-2018-python-3-silly-random-name-generator/
+
+	*/
+/*
+import random
+
+word_file = "E:/maya/scripts/wiz/dictionary/nameDictionary.txt"
+words = open(word_file).read().splitlines()
+upper_words = [word for word in words if word[0].isupper()]
+name_words  = [word for word in upper_words if not word.isupper()]
+one_name = ' '.join([name_words[random.randint(0, len(name_words))] for i in range(2)])
+
+def rand_name():
+   name = ' '.join([name_words[random.randint(0, len(name_words))] for i in range(2)])
+   return name
+print (name)
+
+*/
+	string $dictSrcFile = `textFieldButtonGrp -q -tx wizDictSrcFile`;
+	string $srcFile = $dictSrcFile;
+	string $nameType = "normal";
+	string $tok[] = tokenizeString($flags, " ");	
+	for ($i=0;$i<`size $tok`;$i++){
+		switch ($tok[$i]){
+			case "-src" : case "-source" :
+			$srcFile = wizFlagString($tok, $i);
+			break;
+
+			case "-url" : 
+			//$srcFile = wizFlagString($tok, $i);
+			break;
+
+			case "-typ" : case "-type" :
+			$nameType = wizFlagString($tok, $i);
+			break;
+
+			
+		}
+		
+		
+	}
+
+	string $returnCom = "rand_name_normal()";
+	string $pyCom = (
+	"import maya.mel as mm\n"		
+	+"import random\n"
+	+"\n"
+	+"word_file = \"" + $srcFile + "\"\n"
+	+"words = open(word_file).read().splitlines()\n"
+	+"upper_words = [word for word in words if word[0].isupper()]\n"
+	+"name_words  = [word for word in upper_words if not word.isupper()]\n"	
+	+"one_name = ' '.join([name_words[random.randint(0, len(name_words))] for i in range(2)])\n"
+	+"\n");
+	if ($nameType == "normal"){
+		$pyCom = $pyCom + (
+		"def rand_name_normal():\n"
+		+"	name = one_name\n"
+		+"	return name\n"
+		+"\n");
+
+		$returnCom = "rand_name_normal()";
+	} else if ($nameType == "silly"){
+		$pyCom = $pyCom + (
+		"def rand_name_silly():\n"
+		+"	name = ' '.join([name_words[random.randint(0, len(name_words))] for i in range(2)])\n"
+		+"	return name\n"
+		+"\n");
+
+		$returnCom = "rand_name_silly()";
+	}
+
+	string $null = python($pyCom);
+
+	string $ranCharName = python($returnCom);
+	
+
+	return $ranCharName;
+}
+
+global proc string wizCraftGenerateNameDataFile(string $flags)
+{
+	int $nameCount = `intFieldGrp -q -v1 randomizerWiz_numberOfNamesToGenerate_intFieldGrp`;
+	string $newNames[];
+	for($i=0;$i<$nameCount;$i++){
+		$newNames[$i] = wizGenerateRandomNames($flags);
+		
+	}
+
+	//string $formatted[] = formatCSVData($newNames);	
+	string $dest = `textFieldButtonGrp -q -tx newNameFile_textFieldButtonGrp`;
+	string $newFile = newCSVFile($dest, $newNames, 1);
+
+	return $newFile;
+
+}
+

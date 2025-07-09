@@ -158,8 +158,12 @@ global proc wizCraftLayout(string $parent)
 	randomizerControlLayout($layout);
 	
 	exportWizLayout($layout);
+
+	nameingWizLayout($layout);
 	
-    wizCraftBuilderLayout($layout);    
+    wizCraftBuilderLayout($layout); 
+
+	transformRandomizerLayout($layout);   
     
 	ramputationsMainLayout($layout);
     
@@ -1274,7 +1278,18 @@ global proc wizCraftMainMenuBarLayout()
 		+"uses it to control the frozen state of the rest of selected nodes. "
 		+"Works like a object toggle switch.\n"
 		+"If attribute already exists, this will rebuild the set driven keys to include all objects") -c ("wizSetDrivenSelection(\"-sl -anp -fro\");");
+
+		menuItem -l "Incremental Rotation Control" -ann ("This adds a set driven key to incrementally rotate the object"
+		+"in specified degrees. This is usefull in rotation randomization. "
+		+"If you only want to randomly rotate every n degrees.\n"
+		+"If attribute already exists, this will rebuild the set driven keys to include all objects") -c ("wizCreateIncrementalRotationControl(\"-sl -y -d 90\");");
 		
+		menuItem -l "Add Mash Repro Randomization" -ann ("This adds randomisation attributes to MASH Repro Nodes."
+		+"The repro will randomly select an object and move it to the top of the repro object list.")
+		-c ("wizRandomMASHReproObjects(\"-sl -add\");");
+		
+		
+
     menu -l "Build" -to true;
         menuItem -l "wizCraft Build" -c ("wizCraftDoBuild();");
 		menuItem -d true -dl "Curves";	
@@ -1358,6 +1373,9 @@ global proc wizCraftMainMenuBarLayout()
 		menuItem -l "Select OcculdedFaces" -c ("wizSelectOccludedFaces();");
 		menuItem -l "Rename And Organize MPVR file" -c ("wizMPVRRenameAndOrganize();");
 		menuItem -l "Sort By Matching Geometry Into Groups" -c ("wizMPVRSortIntoMatchingGeometryGroups();");
+		menuItem -l "Make Braille Noise" -c ("wizCraftMakeBrailleNoise();");
+		menuItem -l "Make Braille Stars" -c ("wizCraftMakeBrailleStars();");
+		menuItem -l "Make Braille Round Stars" -c ("wizCraftMakeBrailleRoundStars();");
 		setParent -menu ..;
 		
 }

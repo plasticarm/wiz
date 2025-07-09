@@ -1,0 +1,40 @@
+string $hDots[];
+string $sel[] = `ls -sl`;
+for($i=0;$i<`size $sel`;$i++){
+	float $bboxSize[] = `getAttr ($sel[$i] + ".boundingBoxSize")`;
+	//print($bboxSize);
+	if ($bboxSize[0] > $bboxSize[1]){
+	    $hDots[`size $hDots`] = $sel[$i];
+	    
+	}
+}
+select -r $hDots;
+
+
+
+
+global proc MakeBrailleNoise()
+{
+    float $bbs2[] = `getAttr ("noiseDotMesh1.boundingBoxSize")`; 
+    float $scale[] = `getAttr ("noiseDotMesh1.scale")`;
+    string $sel[] = `ls -sl`;
+    for ($i=0;$i<`size $sel`; $i++)
+    {
+        // instance the dot primitive
+        select -r noiseDotMesh1;
+        string $newDot[] = `instance noiseDotMesh1`;
+        // match the size of the noise circle
+        float $bbs1[] = `getAttr ($sel[$i] + ".boundingBoxSize")`; 	    
+        float $sb[] = { ($bbs2[0] / $bbs1[0]), ($bbs2[1] / $bbs1[1]), ($bbs2[1] / $bbs1[1]) };	    
+	    float $newScale[] = { ($scale[0] / $sb[0]), ($scale[1] / $sb[1]), ($scale[1] / $sb[1]) };
+        xform -s $newScale[0] $newScale[1] $newScale[2] $newDot[0];
+
+        // match translation of noise circle
+        select -add $sel[$i];       
+        MatchTranslation;
+        // put the dot into the noiseDotsGroup1
+        parent $newDot noiseDotsGroup1;
+
+    }
+
+}

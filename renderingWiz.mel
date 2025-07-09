@@ -37,6 +37,7 @@ Summary:
 
 global string $WIZ_renderingWizRenderDirectoryFlag;
 global string $WIZ_cameraAngles[];
+global int $WIZ_readyToRender;
 $WIZ_cameraAngles = { "Default", "Persp", "Front", "Top", "Side", "HeadLevel", "WaistLevel", "FootLevel" };
 
 
@@ -184,7 +185,7 @@ global proc renderWizPresetsMenuItems()
 //** Rendering Wiz batch render menu items. */
 global proc renderWizBatchRenderMenuItems()
 {	
-	menuItem -l "Render Poster Image" -c ("saveScenePosterImage();");
+	menuItem -l "Render Poster Image" -c ("wizRenderPosterWithMacro();");
 			menuItem -ob true -c ("openCurrentOptionsLayout(\"posterImageOptions\");");
 	menuItem -l "Render Object Icon" -c ("wizRenderObjectIcon(\"-sl\");");
 			menuItem -ob true -c ("openCurrentOptionsLayout(\"objectIconOptions\");");		
@@ -1371,6 +1372,12 @@ global proc addToPreMelPostMelCommands(string $script, string $pmel)
 
 }
 
+global proc clearPrePostMelCommands()
+{
+	setAttr -type "string" defaultRenderGlobals.preMel "";
+	setAttr -type "string" defaultRenderGlobals.postMel "";
+}
+
 //ADD TO PRE-POST RENDER LAYER MEL COMMANDS
 //---------------------------------------
 global proc addToPreRenderLayerMelPostRenderLayerMelCommands(string $script, string $pmel)
@@ -1392,6 +1399,7 @@ global proc addToPreRenderLayerMelPostRenderLayerMelCommands(string $script, str
 	}
 
 }
+
 
 //ADD DOING BATCH RENDER GLOBAL VAR TO PRE AND POST MEL COMMANDS
 //=========================================================================
@@ -3961,7 +3969,7 @@ global proc string[] wizTileCamera( string $flags )
 	string $nodes[] = `selectedNodes`;
 	string $camnode = $nodes[0];
 	string $tileCams[];
-	int $i, $j;
+	int $j;
 	string $newCams[];
 	for ($i=0;$i<$div;$i++){
 		for ($j=0;$j<$div;$j++){
@@ -5008,3 +5016,212 @@ global proc wizRenderHieghtmapTiles( string $flags )
 	select -cl;
 }
 
+global proc wizRenderBatchRenderQue()
+{
+	wizlog ("[*] Rendering From Batch Render Que [*]");
+	/*
+	// Get items from BatchRenderFileQueBookmarksTextScrollList
+	// Call batch render from each file
+	//
+	
+	Render -rd -s 0 -e 100 -x 1024 -y 1024
+	*/
+	
+	string $fileQue[] = `textScrollList -q -ai "BatchRenderFileQueBookmarksTextScrollList"`;
+	for ($i=0;$i<`size $fileQue`;$i++){
+	
+		string $sceneFile = `file -q -sn`;
+		string $filePathSplice[] = wizSpliceFilePath($sceneFile, "-dir");
+
+		//string $renCom = ("batchRender \"" + $sceneFile + "\" -rd \"" + $filePathSplice[0] + "\"");
+		string $renCom = ("batchRender -f `file -q -sn`");
+	}
+	
+}
+
+//@ WIZ THREADED TIMER CALLBACK
+//====================================================================
+/*****************************************************************//**
+	Use this to delay the calling of some function for a specific amoun of time
+	<hr>
+	<b>Synopsis</b><br>
+	wizThreadedTimerCallback [float] [string] <br>
+
+	<b>Return value</b><br>
+	none
+	
+	<b>Flags</b><br>
+			
+	<hr>
+	<b>Related</b><br>
+	wizCraftCallback(), wizCraftDuplicateObject(), wizCraftMGMT(), getWizCraftAttr()
+	
+	<b>Examples</b><br>
+	<code>
+	wizThreadedTimerCallback(10, "render");
+	wizThreadedTimerCallback(10, "TestThreadedTimerLooping");
+	wizThreadedTimerCallback(10, "wizAutoBuildAllRandomizableObjectsTimedDelay");
+	</code>
+*********************************************************************/
+global proc wizThreadedTimerCallback( float $delayTime, string $callback)
+{
+	/*
+	ref
+	https://www.codetoday.co.uk/post/creating-a-simple-timer-in-python-and-using-it-with-programs-in-turtle
+	
+	import maya.mel as mm		
+	import threading
+	import time
+
+	def func():
+		print("WizStartNewRender")
+		mm.eval("wizStartNewRender();")
+		return
+		
+	t1 = threading.Timer(15, func)
+	t1.setName('t1')
+	t1.start()
+	*/
+	string $pyCom = (
+	"import maya.mel as mm\n"		
+	+"import threading\n"
+	+"import time\n"
+	+"\n"
+	+"def func():\n"
+	+"	mm.eval(\"" + $callback + ";\")\n"
+	+"	return\n"
+	+"\n"	
+	+"t1 = threading.Timer(" + $delayTime + ", func)\n"
+	+"t1.setName('t1')\n"
+	+"print(\"Calling : " + $callback + " : in : " + $delayTime + "\")\n"
+	+"t1.start()\n");
+
+	python($pyCom);
+
+}
+
+global proc WizSetReadyToRender()
+{
+	wizLog ("	[*********] RENDER COMPLETE  [**********] ");
+	wizLog ("	[*********] READY TO Randomie and Render  [**********] ");
+	//global int $WIZ_readyToRender;
+	//$WIZ_readyToRender = 1;
+	refresh -f;
+	refreshAE;
+	wizMacroSavePosterImage();
+
+	global int $WIZ_currentFileIteration;
+    int $iCount = `intSliderGrp -q -v randomizerWizAutoBuildIterationsIntSliderGrp`;
+	if ($WIZ_currentFileIteration <= $iCount)	{
+		wizAutoBuildAllRandomizableObjectsTimedDelay();
+	} else {
+		
+		wizEndRandomizationRoutine();
+	}
+
+}
+
+global proc TestThreadedTimerLooping()
+{
+	int $curI = `intSliderGrp -q -v randomizerWizAutoBuildCurrentIterationIntSliderGrp`;
+	float $delayTime = `floatSliderGrp -q -v randomizerWizAutoBuildDelayTimeFloatSliderGrp`;
+	$curI = $curI + 1;
+	intSliderGrp -e -v $curI randomizerWizAutoBuildCurrentIterationIntSliderGrp;
+	// End the processing ?
+	if ($curI >= `intSliderGrp -q -v randomizerWizAutoBuildIterationsIntSliderGrp`)	{
+		wizLog ("[-] Wiz Auto Build Complete [-]" + wizDiv("e"));
+		intSliderGrp -e -v 0 randomizerWizAutoBuildCurrentIterationIntSliderGrp;
+		return ;
+	} else {
+		// Repeat and rinse
+		wizLog ("[-] Iteration : " + $curI + " Complete [-]");
+		wizThreadedTimerCallback($delayTime, "TestThreadedTimerLooping");
+	}
+}
+
+global proc wizBatchRenderBatchRenderQue()
+{
+	string $batchFiles[] = `textScrollList -q -ai "BatchRenderFileQueBookmarksTextScrollList"`;
+	for($i=0;$i<`size $batchFiles`;$i++){
+		batchRender -f $batchFiles[$i];
+	}
+
+}
+
+
+//@ WIZ CRAFT RENDER EXPORT TEXTURES
+//====================================================================
+/*****************************************************************//**
+	Renders Textures that are in wiz_exportSet and saves them in file directory
+	<hr>
+	<b>Synopsis</b><br>
+	wizCraftRenderExportTextures [-fa string] [-fb linear] <br>
+	A more detailed description.
+	
+	<b>Return value</b><br>
+	string[] description of return.
+	
+	<b>Flags</b><br>
+	-
+	
+	<hr>
+	<b>Related</b><br>
+	someProcedure(),
+	
+	<b>Examples</b><br>
+	<code>
+	wizCraftRenderExportTextures();
+	
+	</code>
+*********************************************************************/
+global proc wizCraftRenderExportTextures()
+{
+	/*
+	compositeTest 2048 2048;
+	renderWindowEditor -edit -loadImage "E:/maya/projects/Assets/images/testComp.0001.iff" renderView;
+	*/
+	// Get settings
+	string $exportSets[] = `ls -r true ("*exportSet")`;
+	wizlog ("	[#] Rendering All Export Textures [#]");
+	int $h = `getAttr "defaultResolution.height"`;
+    int $w = `getAttr "defaultResolution.width"`;
+	wizlog (" Texture Dimensions :	[Width] : " + $w + " [Height] : " + $h);
+				
+	for ($i=0;$i<`size $exportSets`;$i++){
+		// Get the export set contents
+		string $exSel[] = `sets -q $exportSets[$i]`;
+		//select -r $exSel;
+		// Get all the textures
+		string $tex[] = `ls -tex $exSel`;
+		wizlog (niceArrayList("Render Textures :", $tex));
+		// Get the output setttings of the set
+		int $usd = 0;
+		if (`attributeExists "useSameDirectory" $exportSets[$i]`){
+			$usd = `getAttr ($exportSets[$i] + ".useSameDirectory")`;
+		}
+		
+		// If we are using the same directory we probably need to append the name of the file to the texture to avoid writing over the same image
+		string $opCom = "";
+		if ($usd == 1){
+			$opCom = $opCom + " -usd -pwfn";
+		}
+		// Render each texture and save to file
+		for ($t=0;$t<`size $tex`;$t++){			
+			string $filename[] = wizCraftGetFileOutputPaths("-n " + $tex[$t] + " -rns -ext png " + $opCom);
+			select -r $tex[$t];
+			compositeTest $w $h;
+			//renderWindowEditor -edit -loadImage "E:/maya/projects/Assets/images/testComp.0001.iff" renderView;
+			wizlog (" Saving Texture to File : " + $filename[0]);
+			/*
+			// Don't color manage
+			if (`checkBox -q -v posterImage_colorManage_checkBox`){
+				renderWindowEditor -edit -writeImage $filename[0] -com renderView;
+			} else {
+				renderWindowEditor -edit -writeImage $filename[0] renderView;
+			}*/
+
+			renderWindowEditor -edit -writeImage $filename[0] renderView;
+		}
+	}
+	wizlog ("	[#] Rendering All Export Textures -COMPLETE- [#]");
+}

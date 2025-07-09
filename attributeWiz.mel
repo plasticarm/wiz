@@ -960,7 +960,8 @@ global proc wizAttributeFunctionsMenu()
 		menuItem -l "Set Driven Visibility Selector" -ann ("This adds a new attribute to the first selection and"
 		+"uses it to control visibility of the rest of selected objects. "
 		+"Works like a object toggle switch.\n"
-		+"If attribute already exists, this will rebuild the set driven keys to include all objects") -c ("wizSetDrivenVisibility(\"-sl -anp\");");
+		+"If attribute already exists, this will rebuild the set driven keys to include all objects") 
+		-c ("wizSetDrivenVisibility(\"-sl -anp\");");
 		
 		menuItem -l "Set Driven Enabled Selector" -ann ("This adds a new attribute to the first selection and"
 		+"uses it to control the enabled state of the rest of selected objects. "
@@ -4493,8 +4494,9 @@ global proc wizSetDrivenVisibility( string $flags )
 	
 	string $ln = makeNiceAttributeName($attrName);
 	if (`attributeExists $ln $obj` == 0){
-		addAttr -ln $ln -at long -dv 0 $obj;
-		setAttr -e-keyable true ($obj + "." + $ln);
+		float $mx = float(`size $sel`);
+		addAttr -ln $ln -at long -hnv true -hxv true -min 0 -max $mx -dv 0 $obj;
+		setAttr -e -keyable true -cb true ($obj + "." + $ln);
 	}
 
 	

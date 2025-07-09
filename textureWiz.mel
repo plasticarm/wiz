@@ -278,6 +278,7 @@ global proc textureWizProjectionsMenuItems()
 		menuItem -l "Create Ramp Projector" -c ("wizRampProjector(\"\");");
 		menuItem -l "Create Spherical Ramp" -c ("wizSphericalRampProjector(\"\");");
 		menuItem -l "Create Terrain Elevation Shader On Selected Object" -c ("wizTerrainElevationShader(\"-sl\");");
+		menuItem -l "Create Rounded Corner Gird" -c ("CreateRoundedCorderGrid();");
 	setParent -menu ..;
 
 }
@@ -4514,4 +4515,84 @@ global proc wizReloadAllOctaneTextures()
 	}
 }
 
+global proc CreateRoundedCorderGrid()
+{
 
+	// --- 1. Grid Generation (and initial setup) ---
+	string $grid = `shadingNode -asTexture grid`;
+	setAttr ($grid + ".lineColor") 0 0 0; // Make lines black (or any color you don't want to see)
+	setAttr ($grid + ".fillerColor") 1 1 1; // Make filler white (this will be the base for our squares)
+	setAttr ($grid + ".uWidth") 0.05;      // Control the thickness of the lines
+	setAttr ($grid + ".vWidth") 0.05;
+
+	// --- 2. Square Isolation ---
+	string $fractU = `shadingNode -asUtility fract`;
+	string $fractV = `shadingNode -asUtility fract`;
+	connectAttr -f ($grid + ".outUvFilterSize") ($fractU + ".input");
+	connectAttr -f ($grid + ".outUvFilterSize") ($fractV + ".input");
+
+	// --- 3. Rounding the Corners ---
+
+	// --- 3.a. Create place2dTexture nodes.
+	string $place2dTexture = `shadingNode -asUtility place2dTexture`;
+	connectAttr -f ($place2dTexture + ".outUV") ($grid + ".uvCoord");
+	connectAttr -f ($place2dTexture + ".outUvFilterSize") ($grid + ".uvFilterSize");
+	setAttr ($place2dTexture + ".repeatU") 5; // Number of squares horizontally
+	setAttr ($place2dTexture + ".repeatV") 5; // Number of squares vertically
+
+	// Remap the UVs to center the rounded square
+	string $remapU = `shadingNode -asUtility remapValue`;
+	string $remapV = `shadingNode -asUtility remapValue`;
+
+	connectAttr -f ($fractU + ".outputX") ($remapU + ".inputValue");
+	connectAttr -f ($fractV + ".outputX") ($remapV + ".inputValue");
+
+	setAttr ($remapU + ".inputMin") 0;
+	setAttr ($remapU + ".inputMax") 1;
+	setAttr ($remapU + ".outputMin") -1;
+	setAttr ($remapU + ".outputMax") 1;
+
+	setAttr ($remapV + ".inputMin") 0;
+	setAttr ($remapV + ".inputMax") 1;
+	setAttr ($remapV + ".outputMin") -1;
+	setAttr ($remapV + ".outputMax") 1;
+	// --- 3.b. Square, then sqrt for rounding ---
+	string $multU = `shadingNode -asUtility multiplyDivide`;
+	string $multV = `shadingNode -asUtility multiplyDivide`;
+	string $sqrtNode = `shadingNode -asUtility multiplyDivide`;
+
+	//Square the remapped values.
+	setAttr ($multU + ".operation") 2;  // Set to Power
+	setAttr ($multV + ".operation") 2;
+	connectAttr -f ($remapU + ".outValue") ($multU + ".input1X");
+	setAttr ($multU + ".input2X") 2;
+	connectAttr -f ($remapV + ".outValue") ($multV + ".input1X");
+	setAttr ($multV + ".input2X") 2;
+
+	// Add U^2 + V^2
+	string $add = `shadingNode -asUtility plusMinusAverage`;
+	connectAttr -f ($multU + ".outputX") ($add + ".input2D[0].input2Dx");
+	connectAttr -f ($multV + ".outputX") ($add + ".input2D[0].input2Dy");
+
+	//Take the sqrt of this sum.  Set op to power, and input2.x = 0.5
+	setAttr ($sqrtNode + ".operation") 2;
+	connectAttr ($add + ".output2D.output2Dx") ($sqrtNode + ".input1X");
+	setAttr ($sqrtNode + ".input2X") 0.5;
+
+	// --- 3.c.  Clamp and Invert ---
+	//Clamp the value between 0 and 1.  We do this *before* inverting.
+	string $clamp = `shadingNode -asUtility clamp`;
+	connectAttr -f ($sqrtNode + ".outputX") ($clamp + ".inputR");
+	setAttr ($clamp + ".minR") 0;
+	setAttr ($clamp + ".maxR") 1;
+
+	//Invert (1 - x) to make rounded squares
+	string $reverse = `shadingNode -asUtility reverse`;
+	connectAttr -f ($clamp + ".outputR") ($reverse + ".inputX");
+
+	// --- 4. Blending (Rounded Square and Background) ---
+	string $blend = `shadingNode -asUtility blendColors`;
+	setAttr ($blend + ".color2") 0.2 0.2 0.8; // Background color (e.g., dark blue)
+	connectAttr -f ($reverse + ".outputX") ($blend + ".blender"); // Use the rounded shape as the blend factor
+
+}
